@@ -10,6 +10,16 @@ init_non_host_target(Telegram)
 add_subdirectory(lib_rpl)
 add_subdirectory(lib_crl)
 add_subdirectory(lib_base)
+
+# Patch lib_ui to fix missing QScreen include upstream
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib_ui/ui/widgets/scroll_area.cpp")
+    file(READ "lib_ui/ui/widgets/scroll_area.cpp" _scroll_area_cpp)
+    if (NOT _scroll_area_cpp MATCHES "QtGui/QScreen")
+        string(REPLACE "#include \"base/options.h\"" "#include \"base/options.h\"\n#include <QtGui/QScreen>" _scroll_area_cpp "${_scroll_area_cpp}")
+        file(WRITE "lib_ui/ui/widgets/scroll_area.cpp" "${_scroll_area_cpp}")
+    endif()
+endif()
+
 add_subdirectory(lib_ui)
 add_subdirectory(lib_tl)
 add_subdirectory(lib_spellcheck)
