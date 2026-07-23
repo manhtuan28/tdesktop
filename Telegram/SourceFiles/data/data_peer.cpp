@@ -1909,23 +1909,11 @@ bool PeerData::amMonoforumAdmin() const {
 }
 
 int PeerData::starsPerMessage() const {
-	if (const auto user = asUser()) {
-		return user->starsPerMessage();
-	} else if (const auto channel = asChannel()) {
-		return channel->starsPerMessage();
-	}
 	return 0;
 }
 
 int PeerData::starsPerMessageChecked() const {
-	if (const auto channel = asChannel()) {
-		if (channel->adminRights()
-			|| channel->amCreator()
-			|| amMonoforumAdmin()) {
-			return 0;
-		}
-	}
-	return starsPerMessage();
+	return 0;
 }
 
 Data::StarsRating PeerData::starsRating() const {

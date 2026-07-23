@@ -53,10 +53,11 @@ void PeerSearch::request(
 	}
 	cache.requested = true;
 	cache.result.query = _query;
-	if (_query.size() < kMinSponsoredQueryLength) {
+	if (_query.size() < kMinSponsoredQueryLength
+		|| _type != Type::WithSponsored) {
 		cache.sponsoredReady = true;
-	} else if (_type == Type::WithSponsored) {
-		requestSponsored();
+	} else {
+		cache.sponsoredReady = true;
 	}
 	requestPeers();
 }

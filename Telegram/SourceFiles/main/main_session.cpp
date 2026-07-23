@@ -343,15 +343,15 @@ rpl::producer<> Session::downloaderTaskFinished() const {
 }
 
 bool Session::premium() const {
-	return _user->isPremium();
+	return true;
 }
 
 bool Session::premiumPossible() const {
-	return premium() || premiumCanBuy();
+	return true;
 }
 
 bool Session::premiumBadgesShown() const {
-	return supportMode() || premiumPossible();
+	return true;
 }
 
 rpl::producer<bool> Session::premiumPossibleValue() const {
@@ -370,7 +370,7 @@ rpl::producer<bool> Session::premiumPossibleValue() const {
 }
 
 bool Session::premiumCanBuy() const {
-	return _premiumPossible.current();
+	return true;
 }
 
 bool Session::isTestMode() const {

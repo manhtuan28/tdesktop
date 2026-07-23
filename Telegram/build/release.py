@@ -249,7 +249,7 @@ files.append({
   'label': 'Linux 64 bit: Binary',
 })
 
-r = requests.get(url + 'repos/telegramdesktop/tdesktop/releases/tags/v' + version)
+r = requests.get(url + 'repos/manhtuan28/tdesktop/releases/tags/v' + version)
 if r.status_code == 404:
   print('Release not found, creating.')
   if commit == '':
@@ -281,7 +281,7 @@ if r.status_code == 404:
   print('Changelog: ')
   print(changelog)
 
-  r = requests.post(url + 'repos/telegramdesktop/tdesktop/releases', headers={'Authorization': 'token ' + access_token}, data=json.dumps({
+  r = requests.post(url + 'repos/manhtuan28/tdesktop/releases', headers={'Authorization': 'token ' + access_token}, data=json.dumps({
     'tag_name': 'v' + version,
     'target_commitish': commit,
     'name': 'v ' + version,
@@ -298,7 +298,7 @@ else:
   invoke("git push launchpad {}:beta".format(tagname))
 invoke("git push --tags launchpad")
 
-r = requests.get(url + 'repos/telegramdesktop/tdesktop/releases/tags/v' + version)
+r = requests.get(url + 'repos/manhtuan28/tdesktop/releases/tags/v' + version)
 checkResponseCode(r, 200)
 
 release_data = r.json()
@@ -307,7 +307,7 @@ release_data = r.json()
 release_id = release_data['id']
 print('Release ID: ' + str(release_id))
 
-r = requests.get(url + 'repos/telegramdesktop/tdesktop/releases/' + str(release_id) + '/assets')
+r = requests.get(url + 'repos/manhtuan28/tdesktop/releases/' + str(release_id) + '/assets')
 checkResponseCode(r, 200)
 
 assets = release_data['assets']

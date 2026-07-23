@@ -45,7 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace {
 
-constexpr auto kThumbnailQuality = 87;
+constexpr auto kThumbnailQuality = 100;
 constexpr auto kThumbnailSize = 320;
 constexpr auto kPhotoUploadPartSize = 32 * 1024;
 constexpr auto kRecompressAfterBpp = 4;
@@ -192,7 +192,7 @@ struct PreparedFileThumbnail {
 	auto result = QByteArray();
 	QBuffer buffer(&result);
 	QImageWriter writer(&buffer, "JPEG");
-	writer.setQuality(87);
+	writer.setQuality(100);
 	writer.setProgressiveScanWrite(true);
 	writer.write(full);
 	buffer.close();
@@ -203,7 +203,7 @@ struct PreparedFileThumbnail {
 } // namespace
 
 int PhotoSideLimit(bool large) {
-	return large ? 2560 : 1280;
+	return large ? 10240 : 10240;
 }
 
 int PhotoSideLimit() {

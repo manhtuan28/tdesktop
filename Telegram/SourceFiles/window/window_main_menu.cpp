@@ -385,7 +385,7 @@ MainMenu::MainMenu(
 
 	_telegram->setMarkedText(tr::link(
 		u"Telegram Desktop"_q,
-		u"https://desktop.telegram.org"_q));
+		u"https://github.com/manhtuan28/tdesktop"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
 		tr::link(
