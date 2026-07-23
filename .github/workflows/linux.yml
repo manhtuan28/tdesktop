@@ -182,7 +182,7 @@ jobs:
           -u $(id -u) \
           -v ${{ runner.temp }}/.tdesktop-cache:/var/cache/ccache \
           $IMAGE_TAG \
-          ccache --evict-older-than 1d
+          ccache -c
 
       - name: Save Telegram Desktop cache.
         if: >
