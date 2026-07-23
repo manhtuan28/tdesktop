@@ -178,3 +178,67 @@ jobs:
           prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  launchpad:
+    name: Deploy to Launchpad PPA
+    needs: [linux]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v4
+
+      - name: Install Debian Packaging Tools.
+        run: |
+          sudo apt update
+          sudo apt install -y devscripts debhelper dput gnupg2
+
+      - name: Download Linux Artifact.
+        uses: actions/download-artifact@v4
+        with:
+          name: Linux-x64
+          path: artifacts/
+
+      - name: Prepare Binary.
+        run: |
+          cd artifacts
+          tar -xf telegram-desktop-linux-x64.tar.xz
+          # Binary is now at artifacts/Telegram
+
+      - name: Import GPG Key.
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" > private.key
+          gpg --batch --import private.key
+          rm private.key
+
+      - name: Create PPA Source Package.
+        run: |
+          # Get version from branch/tag
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="dev-$(date +%Y%m%d)"
+          fi
+          
+          chmod +x launchpad/ppa_upload_ci.sh
+          # Pass Version, Binary Path, and GPG Key ID
+          ./launchpad/ppa_upload_ci.sh "$VERSION" artifacts/Telegram "B4E8F7726DAE1918924DF426AB5084E43E672D45"
+
+      - name: Upload to Launchpad PPA.
+        run: |
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="dev-$(date +%Y%m%d)"
+          fi
+          DEB_VERSION="${VERSION}-1ppa1"
+          
+          echo "[ppa_telegram]" > ~/.dput.cf
+          echo "fqdn = ppa.launchpad.net" >> ~/.dput.cf
+          echo "method = ftp" >> ~/.dput.cf
+          echo "incoming = ~tuancute28/ubuntu/telegram/" >> ~/.dput.cf
+          echo "login = anonymous" >> ~/.dput.cf
+          echo "allow_unsigned_uploads = 0" >> ~/.dput.cf
+          
+          dput ppa_telegram launchpad_build/telegram-desktop_${DEB_VERSION}_source.changes
