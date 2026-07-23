@@ -151,6 +151,14 @@ jobs:
           cmake --build build
           cmake --install build
 
+      - name: Setup ccache.
+        if: env.ONLY_CACHE == 'false'
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.OS }}-ccache-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-ccache-
+          max-size: "2G"
+
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
         run: |
@@ -166,8 +174,10 @@ jobs:
             echo "ARTIFACT_NAME=Telegram" >> $GITHUB_ENV
           fi
 
-          cmake -Bbuild . -DTDESKTOP_API_TEST=ON $DEFINE
+          cmake -Bbuild . -DTDESKTOP_API_TEST=ON -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache $DEFINE
           cmake --build build
+          echo "ccache statistics:"
+          ccache -s
           macdeployqt build/Telegram.app
           codesign --remove-signature build/Telegram.app
 

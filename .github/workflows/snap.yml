@@ -67,6 +67,13 @@ jobs:
           enable-lvm-span: true
           lvm-span-mountpoint: /var/snap/lxd/common/lxd/storage-pools/default/containers
 
+      - name: Snapcraft cache.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/snapcraft
+          key: ${{ runner.OS }}-snapcraft-${{ github.sha }}
+          restore-keys: ${{ runner.OS }}-snapcraft-
+
       - name: Telegram Desktop snap build.
         run: sudo -u $USER snap run snapcraft --verbosity=debug
 
