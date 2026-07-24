@@ -3991,22 +3991,6 @@ bool HistoryItem::canUpdateDate() const {
 }
 
 void HistoryItem::applyTTL(TimeId destroyAt) {
-	const auto previousDestroyAt = std::exchange(_ttlDestroyAt, destroyAt);
-	if (previousDestroyAt) {
-		_history->owner().unregisterMessageTTL(previousDestroyAt, this);
-	}
-	if (!_ttlDestroyAt) {
-		return;
-	} else if (base::unixtime::now() >= _ttlDestroyAt) {
-		const auto session = &_history->session();
-		crl::on_main(session, [session, id = fullId()]{
-			if (const auto item = session->data().message(id)) {
-				item->destroy();
-			}
-		});
-	} else {
-		_history->owner().registerMessageTTL(_ttlDestroyAt, this);
-	}
 }
 
 void HistoryItem::replaceBuyWithReceiptInMarkup() {

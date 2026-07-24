@@ -96,7 +96,11 @@ $PKG_NAME ($DEB_VERSION) noble; urgency=medium
   * Auto-strip EXIF/GPS metadata from photos before upload.
   * Ghost Mode: no read receipts and no typing indicators sent.
   * Content Unlocker: bypass forward/save/copy/screenshot restrictions.
-  * Unlocked Rich Messages (articles) and Todo Lists without Premium.
+  * Unlocked Articles (Rich Messages) creation tool
+  * Unlocked Todo Lists for non-Premium users
+  * Anti-Recall: View deleted messages
+  * Anti-TTL: View self-destructing media without time limit
+  * Show IDs: Display Peer ID in profile.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF
