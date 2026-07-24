@@ -46,8 +46,6 @@ mkdir -p "$BUILD_DIR/debian/source"
 # debian/source/format
 echo "3.0 (quilt)" > "$BUILD_DIR/debian/source/format"
 
-# debian/compat
-echo "13" > "$BUILD_DIR/debian/compat"
 
 # debian/control
 cat <<EOF > "$BUILD_DIR/debian/control"
