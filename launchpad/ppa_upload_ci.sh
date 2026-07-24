@@ -29,6 +29,10 @@ mkdir -p "$BUILD_DIR"
 
 # Copy binary
 cp "$BINARY_PATH" "$BUILD_DIR/Telegram"
+UPDATER_PATH="$(dirname "$BINARY_PATH")/Updater"
+if [ -f "$UPDATER_PATH" ]; then
+    cp "$UPDATER_PATH" "$BUILD_DIR/Updater"
+fi
 
 # Copy resources
 cp lib/xdg/org.telegram.desktop.desktop "$BUILD_DIR/org.telegram.desktop.desktop"
@@ -97,6 +101,9 @@ Telegram usr/bin/
 org.telegram.desktop.desktop usr/share/applications/
 telegram.png usr/share/icons/hicolor/256x256/apps/
 EOF
+if [ -f "$BUILD_DIR/Updater" ]; then
+    echo "Updater usr/bin/" >> "$BUILD_DIR/debian/install"
+fi
 
 # debian/rules
 cat <<EOF > "$BUILD_DIR/debian/rules"
