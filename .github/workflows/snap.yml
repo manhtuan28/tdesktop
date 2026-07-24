@@ -3,23 +3,6 @@ name: Snap.
 on:
   workflow_dispatch:
   workflow_call:
-  push:
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - 'changelog.txt'
-      - 'LEGAL'
-      - 'LICENSE'
-      - '.github/**'
-      - '!.github/workflows/snap.yml'
-      - 'Telegram/build/**'
-      - 'Telegram/Resources/uwp/**'
-      - 'Telegram/Resources/winrc/**'
-      - 'Telegram/SourceFiles/platform/win/**'
-      - 'Telegram/SourceFiles/platform/mac/**'
-      - 'Telegram/Telegram/**'
-      - 'Telegram/configure.bat'
-      - 'Telegram/Telegram.plist'
   pull_request:
     paths-ignore:
       - 'docs/**'
