@@ -12,7 +12,7 @@ fi
 echo "Sử dụng GPG Key: $GPG_KEY"
 
 # Prepare variables
-VERSION="0.0.0-dev-$(date +%Y%m%d)"
+VERSION="0.0.0-dev-$(date +%Y%m%d%H%M)"
 BINARY_PATH="../out/Debug/Telegram"
 
 if [ ! -f "$BINARY_PATH" ]; then
