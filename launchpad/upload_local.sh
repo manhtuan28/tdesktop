@@ -15,7 +15,7 @@ echo "Sử dụng GPG Key: $GPG_KEY"
 TELEGRAM_VERSION=$(grep "AppVersionStr " Telegram/build/version | awk '{print $2}')
 if [ -z "$TELEGRAM_VERSION" ]; then TELEGRAM_VERSION="0.0.0"; fi
 VERSION="${TELEGRAM_VERSION}-dev-$(date +%Y%m%d%H%M)"
-BINARY_PATH="../out/Debug/Telegram"
+BINARY_PATH="../out/Release/Telegram"
 
 if [ ! -f "$BINARY_PATH" ]; then
     echo "Không tìm thấy file Telegram tại $BINARY_PATH."
