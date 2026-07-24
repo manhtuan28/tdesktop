@@ -86,6 +86,7 @@ jobs:
       - name: First set up.
         shell: bash
         run: |
+          echo "ssl-no-revoke" > ~/.curlrc
           DOCPATH=$TBUILD/$REPO_NAME/docs/building-win.md
           SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
           echo "SDK=$SDK" >> $GITHUB_ENV
@@ -214,7 +215,7 @@ jobs:
 
       - name: Setup sccache.
         if: env.ONLY_CACHE == 'false'
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@v1.2.14
         with:
           variant: sccache
           key: ${{ runner.OS }}-${{ runner.arch }}-sccache-${{ env.CACHE_KEY }}
