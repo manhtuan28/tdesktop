@@ -101,19 +101,41 @@ jobs:
           git config --global user.email "you@example.com"
           git config --global user.name "Sample"
 
-      - name: Install VS 2026 Build Tools.
+      - name: Install VS 2026 Build Tools (arm64).
+        if: matrix.arch == 'arm64'
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri https://aka.ms/vs/18/stable/vs_buildtools.exe -OutFile vs_buildtools.exe
           $p = Start-Process -FilePath .\vs_buildtools.exe -Wait -PassThru -ArgumentList `
             '--quiet','--wait','--norestart','--nocache', `
             '--add','Microsoft.VisualStudio.Workload.VCTools', `
-            '--add','Microsoft.VisualStudio.Component.VC.Tools.x86.x64', `
             '--add','Microsoft.VisualStudio.Component.VC.Tools.ARM64', `
-            '--add','Microsoft.VisualStudio.Component.VC.ATL.ARM64', `
-            '--add','Microsoft.VisualStudio.Component.VC.ATL'
+            '--add','Microsoft.VisualStudio.Component.VC.ATL.ARM64'
           Remove-Item vs_buildtools.exe -Force
           if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
+
+      - name: Add ATL to existing VS (x64).
+        if: matrix.arch == 'x64'
+        shell: pwsh
+        run: |
+          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installPath = & $vswhere -latest -property installationPath
+          if ($installPath) {
+            $setupExe = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe"
+            if (Test-Path $setupExe) {
+              Write-Host "Modifying VS at $installPath"
+              $p = Start-Process -FilePath $setupExe -Wait -PassThru -ArgumentList `
+                "modify", "--installPath", "`"$installPath`"", `
+                "--add", "Microsoft.VisualStudio.Component.VC.ATL", `
+                "--quiet", "--wait", "--norestart", "--nocache"
+              if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
+            } else {
+              Write-Host "setup.exe not found"
+            }
+          } else {
+            Write-Host "VS not found by vswhere"
+          }
+
 
       - uses: Eden-CI/msvc-dev-cmd@master
         name: Native Tools Command Prompt.
