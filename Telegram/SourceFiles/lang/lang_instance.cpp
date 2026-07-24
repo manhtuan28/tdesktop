@@ -306,16 +306,7 @@ void Instance::reset(const Language &data) {
 
 QString Instance::systemLangCode() const {
 	if (_systemLanguage.isEmpty()) {
-		_systemLanguage = Platform::SystemLanguage();
-		if (_systemLanguage.isEmpty()) {
-			auto uiLanguages = QLocale::system().uiLanguages();
-			if (!uiLanguages.isEmpty()) {
-				_systemLanguage = uiLanguages.front();
-			}
-			if (_systemLanguage.isEmpty()) {
-				_systemLanguage = DefaultLanguageId();
-			}
-		}
+		_systemLanguage = "vi"_q;
 	}
 	return _systemLanguage;
 }
