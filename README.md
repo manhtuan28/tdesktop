@@ -10,6 +10,7 @@ This is a **custom modified version** of the official [Telegram][telegram] messe
 * **Maximum Limits**: Limits for pins, folders, and chats have been significantly increased (up to 99999).
 * **Vietnamese Default**: Out-of-the-box support for the Vietnamese language natively applied on first startup.
 * **Product-Optimized**: Compiled as a fully optimized Release build for blazing-fast performance.
+* **Auto Metadata Stripper**: Automatically removes EXIF, GPS, and camera metadata from photos before uploading to protect your privacy.
 
 ---
 

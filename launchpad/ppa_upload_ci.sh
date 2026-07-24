@@ -93,6 +93,7 @@ $PKG_NAME ($DEB_VERSION) noble; urgency=medium
   * Blocked all sponsored messages and ads.
   * Increased app maximum limits (pins, folders, etc.) to 99999.
   * Enhanced Linux GUI integration and stability.
+  * Auto-strip EXIF/GPS metadata from photos before upload.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF

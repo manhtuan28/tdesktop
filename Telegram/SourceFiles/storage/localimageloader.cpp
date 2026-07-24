@@ -52,6 +52,111 @@ constexpr auto kRecompressAfterBpp = 4;
 
 using Ui::ValidateThumbDimensions;
 
+void StripJpegMetadata(QByteArray &data) {
+	if (data.size() < 4
+		|| static_cast<uchar>(data[0]) != 0xFF
+		|| static_cast<uchar>(data[1]) != 0xD8) {
+		return;
+	}
+	auto result = QByteArray();
+	result.reserve(data.size());
+	result.append(data.data(), 2);
+
+	auto pos = 2;
+	while (pos + 4 <= data.size()) {
+		const auto marker0 = static_cast<uchar>(data[pos]);
+		const auto marker1 = static_cast<uchar>(data[pos + 1]);
+		if (marker0 != 0xFF) {
+			break;
+		}
+		if (marker1 == 0xDA) {
+			result.append(data.data() + pos, data.size() - pos);
+			break;
+		}
+		if (marker1 == 0xD9) {
+			result.append(data.data() + pos, 2);
+			break;
+		}
+		const auto segmentLength = (static_cast<uchar>(data[pos + 2]) << 8)
+			| static_cast<uchar>(data[pos + 3]);
+		const auto fullLength = 2 + segmentLength;
+		if (pos + fullLength > data.size()) {
+			break;
+		}
+		const auto isExif = (marker1 == 0xE1)
+			&& (segmentLength >= 6)
+			&& (memcmp(data.data() + pos + 4, "Exif\0", 5) == 0);
+		const auto isXmpApp1 = (marker1 == 0xE1)
+			&& (segmentLength >= 29)
+			&& (memcmp(
+				data.data() + pos + 4,
+				"http://ns.adobe.com/xap/1.0/",
+				28) == 0);
+		const auto isXmpApp1Ext = (marker1 == 0xE1)
+			&& (segmentLength >= 35)
+			&& (memcmp(
+				data.data() + pos + 4,
+				"http://ns.adobe.com/xmp/extension/",
+				34) == 0);
+		const auto isIptc = (marker1 == 0xED);
+		const auto strip = isExif
+			|| isXmpApp1
+			|| isXmpApp1Ext
+			|| isIptc;
+		if (!strip) {
+			result.append(data.data() + pos, fullLength);
+		}
+		pos += fullLength;
+	}
+	if (result.size() < data.size()) {
+		data = std::move(result);
+	}
+}
+
+void StripPngMetadata(QByteArray &data) {
+	if (data.size() < 8
+		|| memcmp(data.constData(), "\x89PNG\r\n\x1a\n", 8) != 0) {
+		return;
+	}
+	auto result = QByteArray();
+	result.reserve(data.size());
+	result.append(data.data(), 8);
+
+	auto pos = 8;
+	while (pos + 12 <= data.size()) {
+		const auto chunkDataLength = (static_cast<uchar>(data[pos]) << 24)
+			| (static_cast<uchar>(data[pos + 1]) << 16)
+			| (static_cast<uchar>(data[pos + 2]) << 8)
+			| static_cast<uchar>(data[pos + 3]);
+		const auto fullLength = 12 + chunkDataLength;
+		if (pos + fullLength > data.size()) {
+			break;
+		}
+		const auto type = QByteArray::fromRawData(
+			data.data() + pos + 4,
+			4);
+		const auto strip = (type == "tEXt")
+			|| (type == "iTXt")
+			|| (type == "zTXt")
+			|| (type == "eXIf");
+		if (!strip) {
+			result.append(data.data() + pos, fullLength);
+		}
+		pos += fullLength;
+	}
+	if (result.size() < data.size()) {
+		data = std::move(result);
+	}
+}
+
+void StripImageFileMetadata(QByteArray &data, const QString &mime) {
+	if (mime == u"image/jpeg"_q) {
+		StripJpegMetadata(data);
+	} else if (mime == u"image/png"_q) {
+		StripPngMetadata(data);
+	}
+}
+
 struct PreparedFileThumbnail {
 	uint64 id = 0;
 	QString name;
@@ -1023,6 +1128,24 @@ void FileLoadTask::process(ProcessArgs &&args) {
 
 	_result->type = _type;
 	_result->filepath = _filepath;
+
+	if (filemime.startsWith(u"image/"_q) && !Core::IsMimeSticker(filemime)) {
+		if (_content.isEmpty() && !_filepath.isEmpty()) {
+			QFile file(_filepath);
+			if (file.open(QIODevice::ReadOnly)) {
+				_content = file.readAll();
+			}
+		}
+		if (!_content.isEmpty()) {
+			StripImageFileMetadata(_content, filemime);
+			filesize = _content.size();
+			_result->filesize = qMin(
+				qint64(_content.size()),
+				qint64(UINT_MAX));
+			_result->filepath = QString();
+		}
+	}
+
 	_result->content = _content;
 
 	_result->filename = filename;
