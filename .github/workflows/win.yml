@@ -108,6 +108,7 @@ jobs:
           $p = Start-Process -FilePath .\vs_buildtools.exe -Wait -PassThru -ArgumentList `
             '--quiet','--wait','--norestart','--nocache', `
             '--add','Microsoft.VisualStudio.Workload.VCTools', `
+            '--add','Microsoft.VisualStudio.Component.VC.Tools.x86.x64', `
             '--add','Microsoft.VisualStudio.Component.VC.Tools.ARM64', `
             '--add','Microsoft.VisualStudio.Component.VC.ATL.ARM64', `
             '--add','Microsoft.VisualStudio.Component.VC.ATL'
