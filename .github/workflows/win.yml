@@ -61,6 +61,27 @@ jobs:
         shell: bash
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
+      - name: Free Disk Space.
+        shell: powershell
+        run: |
+          $folders = @(
+            "C:\Program Files\Android",
+            "C:\ProgramData\Chocolatey",
+            "C:\Microsoft\AndroidNDK",
+            "C:\Program Files\dotnet",
+            "C:\Program Files\PostgreSQL",
+            "C:\Program Files\Microsoft SQL Server",
+            "C:\Program Files\Java",
+            "C:\Strawberry",
+            "C:\mysql",
+            "C:\tools\php"
+          )
+          foreach ($folder in $folders) {
+            if (Test-Path $folder) {
+              Remove-Item -Path $folder -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
+
       - name: Clone.
         uses: actions/checkout@v7
         with:
