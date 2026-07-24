@@ -95,6 +95,7 @@ $PKG_NAME ($DEB_VERSION) noble; urgency=medium
   * Enhanced Linux GUI integration and stability.
   * Auto-strip EXIF/GPS metadata from photos before upload.
   * Ghost Mode: no read receipts and no typing indicators sent.
+  * Content Unlocker: bypass forward/save/copy/screenshot restrictions.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF
