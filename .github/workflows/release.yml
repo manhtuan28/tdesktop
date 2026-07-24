@@ -43,6 +43,8 @@ jobs:
         run: |
           echo "${{ secrets.GPG_PRIVATE_KEY }}" > private.key
           gpg --batch --import private.key
+          KEY_ID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec:/ { print $5 }' | head -n 1)
+          echo "KEY_ID=$KEY_ID" >> $GITHUB_ENV
           rm private.key
 
       - name: Create PPA Source Package.
@@ -56,7 +58,7 @@ jobs:
           
           chmod +x launchpad/ppa_upload_ci.sh
           # Pass Version, Binary Path, and GPG Key ID
-          ./launchpad/ppa_upload_ci.sh "$VERSION" artifacts/Telegram "B4E8F7726DAE1918924DF426AB5084E43E672D45"
+          ./launchpad/ppa_upload_ci.sh "$VERSION" artifacts/Telegram "$KEY_ID"
 
       - name: Upload to Launchpad PPA.
         run: |
