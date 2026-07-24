@@ -712,9 +712,8 @@ bool PeerData::canCreateTodoLists(bool forbidInForums) const {
 	if (isMonoforum() || isBroadcast()) {
 		return false;
 	}
-	return session().premium()
-		&& (Data::CanSend(this, ChatRestriction::SendPolls, forbidInForums)
-			|| isUser());
+	return Data::CanSend(this, ChatRestriction::SendPolls, forbidInForums)
+		|| isUser();
 }
 
 bool PeerData::canCreateTopics() const {

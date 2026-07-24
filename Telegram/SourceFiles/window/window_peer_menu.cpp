@@ -1405,8 +1405,7 @@ void Filler::addCreateTodoList() {
 		return;
 	}
 	const auto can = _topic
-		? (_peer->session().premium()
-			&& Data::CanSend(_topic, ChatRestriction::SendPolls))
+		? Data::CanSend(_topic, ChatRestriction::SendPolls)
 		: _peer->canCreateTodoLists();
 	if (!can) {
 		return;

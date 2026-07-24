@@ -13,6 +13,7 @@ This is a **custom modified version** of the official [Telegram][telegram] messe
 * **Auto Metadata Stripper**: Automatically removes EXIF, GPS, and camera metadata from photos before uploading to protect your privacy.
 * **Ghost Mode**: Read messages without sending read receipts (no double ticks). Typing, recording, and uploading indicators are completely hidden from other users.
 * **Content Unlocker**: Bypass all content protection restrictions set by admins — freely forward, save, copy, download, and screenshot any message, photo, video, or story.
+* **Rich Messages & Todo Lists**: Create articles (bài viết) and todo/task lists (danh sách) in chats without needing Telegram Premium.
 
 ---
 
