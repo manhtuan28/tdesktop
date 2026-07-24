@@ -306,7 +306,7 @@ void Instance::reset(const Language &data) {
 
 QString Instance::systemLangCode() const {
 	if (_systemLanguage.isEmpty()) {
-		_systemLanguage = "vi"_q;
+		_systemLanguage = "vi-raw"_q;
 	}
 	return _systemLanguage;
 }

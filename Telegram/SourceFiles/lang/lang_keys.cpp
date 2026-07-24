@@ -15,7 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 namespace {
 
-constexpr auto kDefaultLanguage = "vi"_cs;
+constexpr auto kDefaultLanguage = "vi-raw"_cs;
 
 template <typename WithYear, typename WithoutYear>
 inline QString langDateMaybeWithYear(
