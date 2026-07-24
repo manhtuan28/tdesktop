@@ -126,7 +126,7 @@ chmod +x "$BUILD_DIR/debian/rules"
 
 # Build source package
 cd "$BUILD_DIR"
-dpkg-buildpackage -S -sa -d -k"$GPG_KEY"
+dpkg-buildpackage -S -sa -d -k"$GPG_KEY" -p"gpg --batch --pinentry-mode loopback"
 cd ../../
 
 echo "=========================================================="
