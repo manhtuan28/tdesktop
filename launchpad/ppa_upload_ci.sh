@@ -80,7 +80,7 @@ License: GPL-3.0-or-later
 EOF
 
 # debian/changelog
-DATE=\$(date -R)
+DATE=$(date -R)
 cat <<EOF > "$BUILD_DIR/debian/changelog"
 $PKG_NAME ($DEB_VERSION) jammy; urgency=medium
 
@@ -90,7 +90,7 @@ $PKG_NAME ($DEB_VERSION) jammy; urgency=medium
   * Ads blocked.
   * Max limits increased to 99999.
 
- -- $AUTHOR <$EMAIL>  \$DATE
+ -- $AUTHOR <$EMAIL>  $DATE
 EOF
 
 # debian/install
