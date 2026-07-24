@@ -86,7 +86,10 @@ DATE=$(date -R)
 cat <<EOF > "$BUILD_DIR/debian/changelog"
 $PKG_NAME ($DEB_VERSION) noble; urgency=medium
 
-  * Release for PPA via CI.
+  * Default language set to Vietnamese (vi).
+  * Build switched to Release (Product) with maximum optimizations.
+  * Fixed silent crash when launching from GUI (included Updater binary).
+  * Fixed D-Bus activation bug on GNOME/Cinnamon desktop environments.
   * Unlocked Premium features.
   * Bypassed Stars fee.
   * Ads blocked.
