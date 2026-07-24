@@ -154,9 +154,9 @@ jobs:
           if [ -n "${{ matrix.defines }}" ]; then
             DEFINE="-D ${{ matrix.defines }}=ON"
             echo Define from matrix: $DEFINE
-            echo "ARTIFACT_NAME=Telegram ${{ matrix.defines }}" >> $GITHUB_ENV
+            echo "ARTIFACT_NAME=macOS ${{ matrix.defines }}" >> $GITHUB_ENV
           else
-            echo "ARTIFACT_NAME=Telegram" >> $GITHUB_ENV
+            echo "ARTIFACT_NAME=macOS" >> $GITHUB_ENV
           fi
 
           cmake -Bbuild . -DTDESKTOP_API_TEST=ON -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache $DEFINE
