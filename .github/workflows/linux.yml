@@ -212,7 +212,7 @@ jobs:
           
           cp Telegram deb-pkg/usr/bin/
           cp Updater deb-pkg/usr/bin/
-          cp ../../lib/xdg/org.telegram.desktop.desktop deb-pkg/usr/share/applications/telegramdesktop.desktop
+          cp ../../lib/xdg/org.telegram.desktop.desktop deb-pkg/usr/share/applications/org.telegram.desktop.desktop
           cp ../../Telegram/Resources/art/icon256.png deb-pkg/usr/share/icons/hicolor/256x256/apps/telegram.png
           
           cat <<CONTROL > deb-pkg/DEBIAN/control

@@ -31,7 +31,7 @@ mkdir -p "$BUILD_DIR"
 cp "$BINARY_PATH" "$BUILD_DIR/Telegram"
 
 # Copy resources
-cp lib/xdg/org.telegram.desktop.desktop "$BUILD_DIR/telegramdesktop.desktop"
+cp lib/xdg/org.telegram.desktop.desktop "$BUILD_DIR/org.telegram.desktop.desktop"
 cp Telegram/Resources/art/icon256.png "$BUILD_DIR/telegram.png"
 
 # Create orig tarball
@@ -94,7 +94,7 @@ EOF
 # debian/install
 cat <<EOF > "$BUILD_DIR/debian/install"
 Telegram usr/bin/
-telegramdesktop.desktop usr/share/applications/
+org.telegram.desktop.desktop usr/share/applications/
 telegram.png usr/share/icons/hicolor/256x256/apps/
 EOF
 
