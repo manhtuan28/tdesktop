@@ -18,6 +18,11 @@ BINARY_PATH="../out/Debug/Telegram"
 if [ ! -f "$BINARY_PATH" ]; then
     echo "Không tìm thấy file Telegram tại $BINARY_PATH."
     read -p "Vui lòng nhập đường dẫn tới file Telegram đã build/download: " BINARY_PATH
+    
+    if [ -d "$BINARY_PATH" ] && [ -f "$BINARY_PATH/Telegram" ]; then
+        BINARY_PATH="$BINARY_PATH/Telegram"
+    fi
+
     if [ ! -f "$BINARY_PATH" ]; then
         echo "Vẫn không tìm thấy file. Dừng."
         exit 1
