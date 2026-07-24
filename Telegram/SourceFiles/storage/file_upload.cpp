@@ -57,7 +57,7 @@ constexpr auto kKillSessionTimeout = 15 * crl::time(1000);
 // How much wait after session kill before killing another one.
 constexpr auto kWaitForNormalizeTimeout = 8 * crl::time(1000);
 
-constexpr auto kMaxSessionsCount = 16;
+constexpr auto kMaxSessionsCount = 8;
 constexpr auto kFastRequestThreshold = 1 * crl::time(1000);
 constexpr auto kSlowRequestThreshold = 8 * crl::time(1000);
 
