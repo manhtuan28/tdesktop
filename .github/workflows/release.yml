@@ -5,188 +5,23 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      create_release:
-        description: 'Create a GitHub Release'
-        required: false
-        default: 'true'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 jobs:
-
-  linux:
-    name: Linux x64
-    runs-on: ubuntu-latest
-    timeout-minutes: 360
-
-    env:
-      IMAGE_TAG: tdesktop:centos_env
-
-    steps:
-      - name: Clone.
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: First set up.
-        run: |
-          sudo apt update
-          curl -sSL https://install.python-poetry.org | python3 -
-          cd Telegram/build/docker/centos_env
-          poetry install
-          DOCKERFILE=$(DEBUG= LTO= poetry run gen_dockerfile)
-          echo "$DOCKERFILE" > Dockerfile
-          rm -rf __pycache__
-
-      - name: Free up disk space.
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
-        with:
-          tool-cache: true
-
-      - name: Set up Docker Buildx.
-        uses: docker/setup-buildx-action@v3
-
-      - name: Libraries cache.
-        uses: actions/cache@v4
-        with:
-          path: |
-            ${{ runner.temp }}/.buildx-cache
-            ${{ runner.temp }}/.mount-cache
-          key: ${{ runner.OS }}-release-libs-${{ hashFiles('Telegram/build/docker/centos_env/**') }}
-          restore-keys: ${{ runner.OS }}-release-libs-
-
-      - name: Restore Docker cache mounts.
-        uses: reproducible-containers/buildkit-cache-dance@5422eac04292c961a382e0f584ea0f03ad9da723
-        with:
-          cache-dir: ${{ runner.temp }}/.mount-cache
-          dockerfile: Telegram/build/docker/centos_env/Dockerfile
-          skip-extraction: false
-
-      - name: Build libraries Docker image.
-        uses: docker/build-push-action@v6
-        with:
-          context: Telegram/build/docker/centos_env
-          load: true
-          tags: ${{ env.IMAGE_TAG }}
-          cache-from: type=local,src=${{ runner.temp }}/.buildx-cache
-          cache-to: type=local,dest=${{ runner.temp }}/.buildx-cache-new,mode=max
-
-      - name: Move cache.
-        run: |
-          rm -rf ${{ runner.temp }}/.buildx-cache
-          mv ${{ runner.temp }}/.buildx-cache{-new,}
-
-      - name: Build Telegram Desktop.
-        run: |
-          docker run --rm \
-          -u $(id -u) \
-          -v $PWD:/usr/src/tdesktop \
-          -e CONFIG=Release \
-          $IMAGE_TAG \
-          /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
-          -D CMAKE_CONFIGURATION_TYPES=Release \
-          -D TDESKTOP_API_TEST=ON \
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF \
-          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF
-
-      - name: Check build output.
-        run: |
-          if test -f "out/Release/Telegram"; then
-            echo "Build successful!"
-            size=$(stat -c %s "out/Release/Telegram")
-            echo "Binary size: ${size} bytes"
-          else
-            echo "Build failed — binary not found."
-            exit 1
-          fi
-
-      - name: Build .deb package.
-        run: |
-          chmod +x Telegram/build/build_deb.sh
-          ./Telegram/build/build_deb.sh out/Release/Telegram out/Release/
-
-      - name: Prepare artifacts.
-        run: |
-          cd out/Release
-          mkdir -p artifact
-          cp Telegram artifact/
-          cp *.deb artifact/ 2>/dev/null || true
-          tar -cJf artifact/telegram-desktop-linux-x64.tar.xz Telegram
-
-      - name: Upload artifact.
-        uses: actions/upload-artifact@v4
-        with:
-          name: Linux-x64
-          path: out/Release/artifact/
-
-  release:
-    name: Create Release
-    needs: [linux]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts.
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-
-      - name: Prepare release files.
-        run: |
-          mkdir -p release
-          cp artifacts/Linux-x64/*.deb release/ 2>/dev/null || true
-          cp artifacts/Linux-x64/*.tar.xz release/ 2>/dev/null || true
-          ls -la release/
-
-      - name: Get version from tag.
-        id: version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-            echo "name=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=dev-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
-            echo "name=dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create GitHub Release.
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: "Telegram Desktop Custom v${{ steps.version.outputs.name }}"
-          body: |
-            ## Telegram Desktop — Custom Build
-
-            ### Changes from official
-            - ✅ All premium features unlocked (client-side)
-            - ✅ All limits raised to 99999 (pins, accounts, folders, stickers, etc.)
-            - ✅ Ads/sponsored messages blocked
-            - ✅ Paid messages (Stars fee) bypassed
-            - ✅ Update URLs point to this repository
-
-            ### Downloads
-            - **Linux x64**: `.deb` package or `.tar.xz` portable binary
-
-            > **Note**: Server-side restrictions still apply. Features that require server validation may not work.
-          files: release/*
-          draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build-linux:
+    uses: ./.github/workflows/linux.yml
+  build-windows:
+    uses: ./.github/workflows/win.yml
+  build-mac:
+    uses: ./.github/workflows/mac_packaged.yml
+  build-snap:
+    uses: ./.github/workflows/snap.yml
 
   launchpad:
-    name: Deploy to Launchpad PPA
-    needs: [linux]
+    name: Publish to Launchpad PPA
+    needs: build-linux
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/v')
-    
     steps:
-      - name: Clone.
+      - name: Checkout.
         uses: actions/checkout@v4
 
       - name: Install Debian Packaging Tools.
@@ -242,3 +77,58 @@ jobs:
           echo "allow_unsigned_uploads = 0" >> ~/.dput.cf
           
           dput ppa_telegram launchpad_build/telegram-desktop_${DEB_VERSION}_source.changes
+
+  release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows, build-mac, build-snap]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      
+      - name: Prepare Release Files
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec mv {} release/ \;
+          ls -la release/
+
+      - name: Get version from tag.
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "name=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=dev-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+            echo "name=dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub Release.
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Telegram Desktop Custom v${{ steps.version.outputs.name }}"
+          body: |
+            ## Telegram Desktop — Custom Build
+
+            ### Changes from official
+            - ✅ All premium features unlocked (client-side)
+            - ✅ All limits raised to 99999 (pins, accounts, folders, stickers, etc.)
+            - ✅ Ads/sponsored messages blocked
+            - ✅ Paid messages (Stars fee) bypassed
+            - ✅ Update URLs point to this repository
+
+            ### Downloads
+            - **Windows**: `.zip` portable binary
+            - **macOS**: `.dmg` packaged application
+            - **Linux**: `.tar.xz` portable binary and `.deb` package
+            - **Snap**: `.snap` package
+
+            > **Note**: Server-side restrictions still apply. Features that require server validation may not work.
+          files: release/*
+          draft: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
