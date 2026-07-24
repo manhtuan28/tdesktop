@@ -12,7 +12,7 @@ BINARY_PATH="$2"
 GPG_KEY="$3"
 
 PKG_NAME="telegram-desktop"
-DEB_VERSION="${VERSION}-1ppa1"
+DEB_VERSION="${VERSION}-1ppa2"
 PPA_URL="ppa:tuancute28/telegram"
 EMAIL="buimanhtuan2k4@gmail.com"
 AUTHOR="Manh Tuan"
@@ -80,7 +80,7 @@ EOF
 # debian/changelog
 DATE=$(date -R)
 cat <<EOF > "$BUILD_DIR/debian/changelog"
-$PKG_NAME ($DEB_VERSION) jammy; urgency=medium
+$PKG_NAME ($DEB_VERSION) noble; urgency=medium
 
   * Release for PPA via CI.
   * Unlocked Premium features.
