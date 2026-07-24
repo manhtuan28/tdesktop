@@ -11,6 +11,7 @@ This is a **custom modified version** of the official [Telegram][telegram] messe
 * **Vietnamese Default**: Out-of-the-box support for the Vietnamese language natively applied on first startup.
 * **Product-Optimized**: Compiled as a fully optimized Release build for blazing-fast performance.
 * **Auto Metadata Stripper**: Automatically removes EXIF, GPS, and camera metadata from photos before uploading to protect your privacy.
+* **Ghost Mode**: Read messages without sending read receipts (no double ticks). Typing, recording, and uploading indicators are completely hidden from other users.
 
 ---
 

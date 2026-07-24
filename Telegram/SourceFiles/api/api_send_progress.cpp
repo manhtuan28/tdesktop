@@ -64,22 +64,6 @@ void SendProgressManager::update(
 		MsgId topMsgId,
 		SendProgressType type,
 		int progress) {
-	const auto peer = history->peer;
-	if (peer->isSelf()
-		|| (peer->isChannel()
-			&& !peer->isMegagroup()
-			&& type != SendProgressType::Speaking)) {
-		return;
-	}
-
-	const auto doing = (progress >= 0);
-	const auto key = Key{ history, topMsgId, type };
-	if (updated(key, doing)) {
-		cancel(history, topMsgId, type);
-		if (doing) {
-			send(key, progress);
-		}
-	}
 }
 
 bool SendProgressManager::updated(const Key &key, bool doing) {

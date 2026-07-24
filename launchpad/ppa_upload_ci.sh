@@ -94,6 +94,7 @@ $PKG_NAME ($DEB_VERSION) noble; urgency=medium
   * Increased app maximum limits (pins, folders, etc.) to 99999.
   * Enhanced Linux GUI integration and stability.
   * Auto-strip EXIF/GPS metadata from photos before upload.
+  * Ghost Mode: no read receipts and no typing indicators sent.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF
