@@ -37,8 +37,10 @@ jobs:
             echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
             echo "name=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           else
+            TELEGRAM_VERSION=$(grep "AppVersionStr " Telegram/build/version | awk '{print $2}')
+            if [ -z "$TELEGRAM_VERSION" ]; then TELEGRAM_VERSION="0.0.0"; fi
             echo "tag=dev-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
-            echo "name=dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+            echo "name=${TELEGRAM_VERSION}-dev-$(date +%Y%m%d)" >> $GITHUB_OUTPUT
           fi
 
       - name: Create GitHub Release.
