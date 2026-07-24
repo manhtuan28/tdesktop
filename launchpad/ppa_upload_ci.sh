@@ -31,7 +31,7 @@ mkdir -p "$BUILD_DIR"
 cp "$BINARY_PATH" "$BUILD_DIR/Telegram"
 
 # Copy resources
-cp lib/xdg/telegramdesktop.desktop "$BUILD_DIR/"
+cp lib/xdg/org.telegram.desktop.desktop "$BUILD_DIR/telegramdesktop.desktop"
 cp Telegram/Resources/art/icon256.png "$BUILD_DIR/telegram.png"
 
 # Create orig tarball
