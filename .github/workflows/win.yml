@@ -101,7 +101,7 @@ jobs:
           git config --global user.email "you@example.com"
           git config --global user.name "Sample"
 
-      - name: Install VS 2026 Build Tools (arm64).
+      - name: Install VS 2026 Build Tools.
         if: matrix.arch == 'arm64'
         shell: pwsh
         run: |
@@ -113,29 +113,6 @@ jobs:
             '--add','Microsoft.VisualStudio.Component.VC.ATL.ARM64'
           Remove-Item vs_buildtools.exe -Force
           if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
-
-      - name: Add ATL to existing VS (x64).
-        if: matrix.arch == 'x64'
-        shell: pwsh
-        run: |
-          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
-          $installPath = & $vswhere -latest -property installationPath
-          if ($installPath) {
-            $setupExe = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe"
-            if (Test-Path $setupExe) {
-              Write-Host "Modifying VS at $installPath"
-              $p = Start-Process -FilePath $setupExe -Wait -PassThru -ArgumentList `
-                "modify", "--installPath", "`"$installPath`"", `
-                "--add", "Microsoft.VisualStudio.Component.VC.ATL", `
-                "--quiet", "--wait", "--norestart", "--nocache"
-              if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { exit $p.ExitCode }
-            } else {
-              Write-Host "setup.exe not found"
-            }
-          } else {
-            Write-Host "VS not found by vswhere"
-          }
-
 
       - uses: Eden-CI/msvc-dev-cmd@master
         name: Native Tools Command Prompt.
@@ -182,7 +159,7 @@ jobs:
 
       - name: Libraries.
         run: |
-          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat silent ${{ matrix.qt }}
+          %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent ${{ matrix.qt }}
 
       - name: Read configuration matrix.
         shell: bash

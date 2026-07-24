@@ -1644,13 +1644,13 @@ Section DetailsFiller::makeInfo() {
 			});
 	};
 	
-	const auto peerIdString = QString::number(peerToBareMTPInt(_peer->id));
+	const auto peerIdString = QString::number(_peer->id.value & PeerId::kChatTypeMask);
 	const auto dcIdText = (_peer->isUser() && _peer->asUser()->isBot()) ? u" (Bot)"_q : u""_q;
 	
 	const auto idLabel = addInfoOneLine(
-		rpl::single(TextWithEntities{ u"ID"_q }),
+		TextWithEntities{ u"ID"_q },
 		rpl::single(TextWithEntities{ peerIdString + dcIdText }),
-		tr::lng_profile_copy_phone(tr::now), // Use a default copy string, will override hook
+		tr::lng_profile_copy_phone(tr::now),
 		st::infoProfileLabeledPadding,
 		st::popupMenuWithIcons).text;
 		
@@ -1665,7 +1665,6 @@ Section DetailsFiller::makeInfo() {
 		}
 	};
 	idLabel->setContextMenuHook(idHook);
-
 
 	if (const auto user = _peer->asUser()) {
 		if (user->session().supportMode()) {
