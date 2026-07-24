@@ -86,14 +86,13 @@ DATE=$(date -R)
 cat <<EOF > "$BUILD_DIR/debian/changelog"
 $PKG_NAME ($DEB_VERSION) noble; urgency=medium
 
-  * Default language set to Vietnamese (vi).
-  * Build switched to Release (Product) with maximum optimizations.
-  * Fixed silent crash when launching from GUI (included Updater binary).
-  * Fixed D-Bus activation bug on GNOME/Cinnamon desktop environments.
-  * Unlocked Premium features.
-  * Bypassed Stars fee.
-  * Ads blocked.
-  * Max limits increased to 99999.
+  * Custom Telegram Desktop release (Product Build).
+  * Automatically defaults to Vietnamese (vi) language.
+  * Unlocked all Telegram Premium features.
+  * Bypassed Stars fee for premium actions.
+  * Blocked all sponsored messages and ads.
+  * Increased app maximum limits (pins, folders, etc.) to 99999.
+  * Enhanced Linux GUI integration and stability.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF
