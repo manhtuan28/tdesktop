@@ -1,16 +1,20 @@
-# [Telegram Desktop][telegram_desktop] – Official Messenger
+# Tuancute Telegram Desktop – Custom Build
 
-This is the complete source code and the build instructions for the official [Telegram][telegram] messenger desktop client, based on the [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol.
+This is a **custom modified version** of the official [Telegram][telegram] messenger desktop client, created by **Manh Tuan (tuancute)**. It is based on the [Telegram API][telegram_api] and the [MTProto][telegram_proto] secure protocol, but enhanced with exclusive features.
 
-[![Version](https://badge.fury.io/gh/telegramdesktop%2Ftdesktop.svg)](https://github.com/telegramdesktop/tdesktop/releases)
-[![Build Status](https://github.com/telegramdesktop/tdesktop/workflows/Windows./badge.svg)](https://github.com/telegramdesktop/tdesktop/actions)
-[![Build Status](https://github.com/telegramdesktop/tdesktop/workflows/MacOS./badge.svg)](https://github.com/telegramdesktop/tdesktop/actions)
-[![Build Status](https://github.com/telegramdesktop/tdesktop/workflows/Linux./badge.svg)](https://github.com/telegramdesktop/tdesktop/actions)
-[![Built with Depot](https://img.shields.io/badge/Built%20with-Depot.dev-46A75A)](https://depot.dev)
+## 🔥 Exclusive Features in this Build
 
-[![Preview of Telegram Desktop][preview_image]][preview_image_url]
+* **Telegram Premium Unlocked**: Access to premium features natively without server-side validation limits where possible.
+* **Bypass Stars Fee**: Restrictions and costs for certain premium reactions or actions have been bypassed.
+* **Ad-Blocker**: Complete blocking of all sponsored messages and in-app advertisements.
+* **Maximum Limits**: Limits for pins, folders, and chats have been significantly increased (up to 99999).
+* **Vietnamese Default**: Out-of-the-box support for the Vietnamese language natively applied on first startup.
+* **Product-Optimized**: Compiled as a fully optimized Release build for blazing-fast performance.
 
-The source code is published under GPLv3 with OpenSSL exception, the license is available [here][license].
+---
+
+The source code is published under GPLv3 with OpenSSL exception, the license is
+available [here][license].
 
 ## Supported systems
 
