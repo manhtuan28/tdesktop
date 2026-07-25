@@ -3114,7 +3114,7 @@ bool HistoryItem::canDeleteForEveryone(TimeId now) const {
 		return false;
 	}
 	if (peer->isChannel()) {
-		return true; // TuanGram: Enable "Delete for everyone" checkbox in channels
+		return false;
 	} else if (const auto user = peer->asUser()) {
 		// Bots receive all messages and there is no sense in revoking them.
 		// See https://github.com/telegramdesktop/tdesktop/issues/3818
