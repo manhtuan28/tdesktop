@@ -754,6 +754,11 @@ void Histories::deleteMessages(
 			history->requestChatListMessage();
 		};
 		if (const auto channel = history->peer->asChannel()) {
+			if (!revoke) { // TuanGram: Local Delete only!
+				finish();
+				history->requestChatListMessage();
+				return 0;
+			}
 			return session().api().request(MTPchannels_DeleteMessages(
 				channel->inputChannel(),
 				MTP_vector<MTPint>(ids)

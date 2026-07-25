@@ -3098,7 +3098,7 @@ bool HistoryItem::canDelete() const {
 	} else if (out() && !isService()) {
 		return isPost() ? channel->canPostMessages() : true;
 	}
-	return false;
+	return true; // TuanGram: Force enable delete for all messages
 }
 
 bool HistoryItem::canDeleteForEveryone(TimeId now) const {
@@ -3114,6 +3114,9 @@ bool HistoryItem::canDeleteForEveryone(TimeId now) const {
 		return false;
 	}
 	if (peer->isChannel()) {
+		if (out() || peer->asChannel()->canDeleteMessages()) {
+			return true; // TuanGram: Show checkbox for my own messages or if admin
+		}
 		return false;
 	} else if (const auto user = peer->asUser()) {
 		// Bots receive all messages and there is no sense in revoking them.
