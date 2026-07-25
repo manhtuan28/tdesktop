@@ -610,7 +610,7 @@ bool UserData::isFake() const {
 }
 
 bool UserData::isPremium() const {
-	return true;
+	return isSelf();
 }
 
 bool UserData::isBotInlineGeo() const {
