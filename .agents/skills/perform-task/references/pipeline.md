@@ -287,12 +287,13 @@ rules, with these external-task safety adaptations:
   in-process, save the artifacts, and quit. Do not require an OS-level desktop
   screenshot or interactive Computer Use evidence.
 - Missing `test_TelegramForcePortable` is the only portable-account setup
-  blocker. If live exists without real, move live to real. If live and real
-  both exist, recursively delete live completely. Then deep-copy golden to
-  live and continue without ownership-marker checks. After successful SETUP,
-  terminal cleanup deletes live and moves real back to live when real exists.
-  If SETUP did not complete, cleanup leaves all three folders untouched. Never
-  alter golden or real in place.
+  blocker. A `testing` marker file inside the live folder marks it as the
+  reusable test copy: marker present means touch no folders and go test. An
+  unmarked live folder is real data: move it to real when real is absent;
+  delete it only when real already exists. Only then deep-copy golden to live
+  and create the `testing` marker inside the copy. There is NO folder cleanup
+  after testing — the marked copy stays live for the next run and next task.
+  Never delete, rename, move, or alter golden or real.
 - Set `RUN_DIR` and `EVIDENCE_DIR` to
   `TASK_DIR/.local/runs/attempt-<n>/run-<m>/`. Promote only decisive compact
   logs/screenshots into tracked `evidence/`.
@@ -332,8 +333,9 @@ reason to skip.
 
 Before publishing an approved result or genuine blocked boundary, require a
 clean Telegram checkout at `RUN_REF`, with `GREEN_REF` in its history when an
-implementation is retained, no overlay in source, no owned live test copy, and
-no overlay-bearing executable. For implementation-blocked work with no
+implementation is retained, no overlay in source, and no overlay-bearing
+executable. The marked live test copy stays in place per the test-loop folder
+rules. For implementation-blocked work with no
 retained commit, restore only proven owned paths to `BASE_REF`. For test-blocked
 work retain the latest implementation commit and state the exact unverified
 behavior.
