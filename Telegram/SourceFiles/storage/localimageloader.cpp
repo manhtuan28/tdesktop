@@ -1044,6 +1044,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
 					fullimagebytes = fullimageformat = QByteArray();
 				}
 				filedata = ComputePhotoJpegBytes(full, fullimagebytes, fullimageformat);
+				StripJpegMetadata(filedata); // TuanGram: Fix EXIF privacy leak
 
 				photoThumbs.emplace('m', PreparedPhotoThumb{ .image = medium });
 				photoSizes.push_back(MTP_photoSize(MTP_string("m"), MTP_int(medium.width()), MTP_int(medium.height()), MTP_int(0)));
