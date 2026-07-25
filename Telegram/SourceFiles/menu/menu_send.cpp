@@ -755,6 +755,12 @@ FillMenuResult FillSendMenu(
 			[=] { action({ .type = ActionType::Schedule }, details); },
 			&icons.menuSchedule);
 	}
+	if (sending && type != Type::SilentOnly && type != Type::Reminder) {
+		menu->addAction(
+			"Dịch và gửi...",
+			[=] { action({ .type = ActionType::TranslateOutgoing }, details); },
+			&icons.menuSchedule); // Fallback icon since menuTranslate may not be available in ComposeIcons
+	}
 	if (sending && type == Type::ScheduledToUser) {
 		menu->addAction(
 			tr::lng_scheduled_send_until_online(tr::now),

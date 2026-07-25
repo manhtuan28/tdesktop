@@ -1614,33 +1614,23 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 	const auto translateChat = container->add(object_ptr<Ui::SettingsButton>(
 		container,
 		tr::lng_translate_settings_chat(),
-		st::settingsButtonNoIconLocked
+		st::settingsButtonNoIcon
 	))->toggleOn(rpl::merge(
-		rpl::combine(
-			Core::App().settings().translateChatEnabledValue(),
-			rpl::duplicate(premium),
-			_1 && _2),
+		Core::App().settings().translateChatEnabledValue(),
 		_translateChatTurnOff.events()));
 	_translateChatsToggle = translateChat;
 	std::move(premium) | rpl::on_next([=](bool value) {
-		translateChat->setToggleLocked(!value);
+		translateChat->setToggleLocked(false);
 	}, translateChat->lifetime());
 
 	translateChat->toggledValue(
 	) | rpl::filter([=](bool checked) {
-		const auto premium = _controller->session().premium();
-		if (checked && !premium) {
-			ShowPremiumPreviewToBuy(
-				_controller,
-				PremiumFeature::RealTimeTranslation);
-			_translateChatTurnOff.fire(false);
-		}
-		return premium
-			&& (checked != Core::App().settings().translateChatEnabled());
+		return (checked != Core::App().settings().translateChatEnabled());
 	}) | rpl::on_next([=](bool checked) {
 		Core::App().settings().setTranslateChatEnabled(checked);
 		Core::App().saveSettingsDelayed();
 	}, translateChat->lifetime());
+
 
 	using Languages = std::vector<LanguageId>;
 	const auto translateSkipWrap = container->add(
@@ -1671,6 +1661,27 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 	});
 	Ui::AddSkip(container);
 	Ui::AddDividerText(container, tr::lng_translate_settings_about());
+
+	Ui::AddSkip(container);
+	const auto translateOutgoingTo = Settings::AddButtonWithLabel(
+		container,
+		"Dịch tin nhắn gửi đi sang...",
+		Core::App().settings().translateOutgoingToValue(
+		) | rpl::map([](LanguageId id) {
+			return Ui::LanguageName(id);
+		}),
+		st::settingsButtonNoIcon);
+	translateOutgoingTo->setClickedCallback([=] {
+		uiShow()->showBox(Ui::ChooseTranslateToBox(
+			Core::App().settings().translateOutgoingTo(),
+			[=](LanguageId id) {
+				Core::App().settings().setTranslateOutgoingTo(id);
+				Core::App().saveSettingsDelayed();
+			}
+		));
+	});
+	Ui::AddSkip(container);
+	Ui::AddDividerText(container, "Chọn ngôn ngữ mặc định để dịch tin nhắn gửi đi.");
 }
 
 void LanguageBox::keyPressEvent(QKeyEvent *e) {

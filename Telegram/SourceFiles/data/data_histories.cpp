@@ -747,6 +747,10 @@ void Histories::deleteMessages(
 		not_null<History*> history,
 		const QVector<MTPint> &ids,
 		bool revoke) {
+	if (history->peer->isChannel() && !revoke) {
+		history->requestChatListMessage();
+		return;
+	}
 	sendRequest(history, RequestType::Delete, [=](Fn<void()> finish) {
 		const auto done = [=](const MTPmessages_AffectedMessages &result) {
 			session().api().applyAffectedMessages(history->peer, result);
@@ -754,11 +758,6 @@ void Histories::deleteMessages(
 			history->requestChatListMessage();
 		};
 		if (const auto channel = history->peer->asChannel()) {
-			if (!revoke) { // TuanGram: Local Delete only!
-				finish();
-				history->requestChatListMessage();
-				return 0;
-			}
 			return session().api().request(MTPchannels_DeleteMessages(
 				channel->inputChannel(),
 				MTP_vector<MTPint>(ids)

@@ -906,6 +906,9 @@ public:
 	void setTranslateTo(LanguageId id);
 	[[nodiscard]] LanguageId translateTo() const;
 	[[nodiscard]] rpl::producer<LanguageId> translateToValue() const;
+	void setTranslateOutgoingTo(LanguageId id);
+	[[nodiscard]] LanguageId translateOutgoingTo() const;
+	[[nodiscard]] rpl::producer<LanguageId> translateOutgoingToValue() const;
 	void setSkipTranslationLanguages(std::vector<LanguageId> languages);
 	[[nodiscard]] std::vector<LanguageId> skipTranslationLanguages() const;
 	[[nodiscard]] auto skipTranslationLanguagesValue() const
@@ -1187,6 +1190,7 @@ private:
 	bool _usePlatformTranslation = false;
 	rpl::variable<bool> _translateChatEnabled = true;
 	rpl::variable<int> _translateToRaw = 0;
+	rpl::variable<int> _translateOutgoingToRaw = 0;
 	rpl::variable<std::vector<LanguageId>> _skipTranslationLanguages;
 	rpl::event_stream<> _skipTranslationLanguagesChanges;
 	bool _rememberedDeleteMessageOnlyForYou = false;

@@ -1,3 +1,11 @@
+7.0.6-tuancute (26.07.26)
+
+- Add "Translate and Send" functionality for outgoing messages with target language selection.
+- Unlock Real-time translation bar for all standard accounts without Premium.
+- Fix application crash when deleting other people's messages or choosing "delete for me only" in Megagroups/Channels by enforcing safe local-only deletion.
+- Fix metadata stripping not properly removing EXIF/GPS data from images sent as Photos.
+- Optimize Premium Star visibility to only display on your own account.
+
 7.0.5 (23.07.26)
 
 - Improve slideshow preload / animation / swipes in rich messages.

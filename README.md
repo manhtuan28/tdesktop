@@ -18,6 +18,9 @@ This is a **custom modified version** of the official [Telegram][telegram] messe
 * **Anti-Recall**: Prevent deleted messages from being removed, allowing you to view them.
 * **Anti-TTL**: Prevent self-destructing media from being deleted, allowing unlimited viewing time.
 * **Show IDs**: Display Peer ID directly in user, group, and channel profiles.
+* **Outgoing Translation**: Natively translate outgoing messages before sending directly from the Send menu.
+* **Real-time Translation Unlocked**: Real-time translation bar is fully unlocked for regular accounts.
+* **Safe Local Message Deletion**: Allows you to delete messages in channels or megagroups locally on your end without server crashes.
 
 ---
 

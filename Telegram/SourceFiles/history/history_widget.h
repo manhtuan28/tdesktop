@@ -474,6 +474,7 @@ private:
 	void send(Api::SendOptions options);
 	void sendWithModifiers(Qt::KeyboardModifiers modifiers);
 	void sendScheduled(Api::SendOptions initialOptions);
+	void translateAndSend(Api::SendOptions options);
 	[[nodiscard]] SendMenu::Details sendButtonMenuDetails() const;
 	[[nodiscard]] SendMenu::Details sendButtonDefaultDetails() const;
 	void handlePendingHistoryUpdate();

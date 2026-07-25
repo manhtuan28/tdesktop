@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
 https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "history/history_widget.h"
+#include "api/api_text_entities.h"
 
 #include "api/api_compose_with_ai.h"
 #include "api/api_editing.h"
@@ -430,6 +431,8 @@ HistoryWidget::HistoryWidget(
 	setupSendMenu(_send.get(), [=](SendMenu::Action action, SendMenu::Details) {
 		if (action.type == SendMenu::ActionType::Send) {
 			send(action.options);
+		} else if (action.type == SendMenu::ActionType::TranslateOutgoing) {
+			translateAndSend(action.options);
 		} else {
 			sendScheduled(action.options);
 		}
@@ -5720,6 +5723,56 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
 			sendButtonDefaultDetails(),
 			[=](Api::SendOptions options) { send(options); },
 			initialOptions));
+}
+
+void HistoryWidget::translateAndSend(Api::SendOptions options) {
+	if (!_list || !_field) {
+		return;
+	}
+	const auto textWithTags = _field->getTextWithAppliedMarkdown();
+	if (textWithTags.text.isEmpty()) {
+		return;
+	}
+
+	const auto to = session().settings().translateOutgoingTo();
+	
+	auto requestText = QVector<MTPTextWithEntities>();
+	requestText.push_back(MTP_textWithEntities(
+		MTP_string(textWithTags.text),
+		Api::EntitiesToMTP(
+			&session(),
+			TextUtilities::ConvertTextTagsToEntities(textWithTags.tags),
+			Api::ConvertOption::SkipLocal)));
+
+	session().api().request(MTPmessages_TranslateText(
+		MTP_flags(MTPmessages_TranslateText::Flag::f_text),
+		MTP_inputPeerEmpty(),
+		MTPVector<MTPint>(),
+		MTP_vector<MTPTextWithEntities>(requestText),
+		MTP_string(to.twoLetterCode()),
+		MTPstring()
+	)).done([=](const MTPmessages_TranslatedText &result) {
+		const auto &results = result.data().vresult().v;
+		if (!results.isEmpty()) {
+			const auto &translated = results.front().match(
+				[&](const MTPDtextWithEntities &data) {
+					return TextWithEntities{
+						qs(data.vtext()),
+						Api::EntitiesFromMTP(
+							&session(),
+							data.ventities().v)
+					};
+				}
+			);
+			_field->setTextWithTags({
+				translated.text,
+				TextUtilities::ConvertEntitiesToTextTags(translated.entities)
+			});
+			send(options);
+		}
+	}).fail([=](const MTP::Error &error) {
+		_controller->showToast(tr::lng_fail_text(tr::now));
+	}).send();
 }
 
 SendMenu::Details HistoryWidget::sendMenuDetails() const {

@@ -101,6 +101,9 @@ $PKG_NAME ($DEB_VERSION) noble; urgency=medium
   * Anti-Recall: View deleted messages
   * Anti-TTL: View self-destructing media without time limit
   * Show IDs: Display Peer ID in profile.
+  * Outgoing Translation: Translate messages before sending natively.
+  * Real-time Translation Unlocked: Fully unlocked for all users.
+  * Safe Local Deletion: Delete channel/megagroup messages without crash.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF

@@ -345,7 +345,8 @@ QByteArray Settings::serialize() const {
 	size += sizeof(qint32) // _audioPlaybackSpeed
 		+ sizeof(qint32) // _mediaGridZoomStep
 		+ sizeof(qint32) // _pullToNextChannel
-		+ sizeof(qint32); // _chatFiltersTabsMode
+		+ sizeof(qint32) // _chatFiltersTabsMode
+		+ sizeof(quint64); // _translateOutgoingToRaw
 
 	auto result = QByteArray();
 	result.reserve(size);
@@ -523,6 +524,7 @@ QByteArray Settings::serialize() const {
 		stream << qint32(_mediaGridZoomStep);
 		stream << qint32(_pullToNextChannel.current() ? 1 : 0);
 		stream << qint32(_chatFiltersTabsMode.current());
+		stream << quint64(QLocale::Language(_translateOutgoingToRaw.current()));
 	}
 
 	Ensures(result.size() == size);
@@ -637,6 +639,7 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 	qint32 rememberedDeleteMessageOnlyForYou = _rememberedDeleteMessageOnlyForYou ? 1 : 0;
 	qint32 translateChatEnabled = _translateChatEnabled.current() ? 1 : 0;
 	quint64 translateToRaw = _translateToRaw.current();
+	quint64 translateOutgoingToRaw = _translateOutgoingToRaw.current();
 	qint32 hideChatName = _windowTitleContent.current().hideChatName ? 1 : 0;
 	qint32 hideAccountName = _windowTitleContent.current().hideAccountName ? 1 : 0;
 	qint32 hideTotalUnread = _windowTitleContent.current().hideTotalUnread ? 1 : 0;
@@ -1052,6 +1055,9 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 	if (!stream.atEnd()) {
 		stream >> chatFiltersTabsMode;
 	}
+	if (!stream.atEnd()) {
+		stream >> translateOutgoingToRaw;
+	}
 	if (stream.status() != QDataStream::Ok) {
 		LOG(("App Error: "
 			"Bad data for Core::Settings::constructFromSerialized()"));
@@ -1266,6 +1272,11 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 	_rememberedDeleteMessageOnlyForYou = (rememberedDeleteMessageOnlyForYou == 1);
 	_translateChatEnabled = (translateChatEnabled == 1);
 	_translateToRaw = int(QLocale::Language(translateToRaw));
+	if (translateOutgoingToRaw) {
+		_translateOutgoingToRaw = int(QLocale::Language(translateOutgoingToRaw));
+	} else {
+		_translateOutgoingToRaw = int(QLocale::Vietnamese); // Default for TuanGram users
+	}
 	_windowTitleContent = WindowTitleContent{
 		.hideChatName = (hideChatName == 1),
 		.hideAccountName = (hideAccountName == 1),
