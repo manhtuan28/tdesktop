@@ -224,6 +224,7 @@ bool GenerateDesktopFile(
 		const QStringList &args = {},
 		bool onlyMainGroup = false,
 		bool silent = false) {
+	const auto executable = ExecutablePathForShortcuts();
 	return true;
 
 	DEBUG_LOG(("App Info: placing .desktop file to %1").arg(targetPath));

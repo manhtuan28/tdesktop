@@ -58,9 +58,10 @@ thirdPartyDir = os.path.realpath(os.path.join(rootDir, 'ThirdParty'))
 usedPrefix = os.path.realpath(os.path.join(libsDir, 'local'))
 
 optionsList = [
-    'qt6',
-    'skip-release',
-    'build-stackwalk',
+	'qt6',
+	'skip-release',
+	'skip-debug',
+	'build-stackwalk',
 ]
 options = []
 runCommand = []
@@ -250,6 +251,11 @@ def filterByPlatform(commands):
             #     inscope = True
             if 'release' in scopes:
                 if 'skip-release' in options:
+                    inscope = False
+                elif len(scopes) == 1:
+                    continue
+            if 'debug' in scopes:
+                if 'skip-debug' in options:
                     inscope = False
                 elif len(scopes) == 1:
                     continue
