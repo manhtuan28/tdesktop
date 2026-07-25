@@ -66,6 +66,11 @@ void StripJpegMetadata(QByteArray &data) {
 	while (pos + 4 <= data.size()) {
 		const auto marker0 = static_cast<uchar>(data[pos]);
 		const auto marker1 = static_cast<uchar>(data[pos + 1]);
+		if (marker1 == 0xFF) {
+			result.append(data.data() + pos, 1);
+			++pos;
+			continue;
+		}
 		if (marker0 != 0xFF) {
 			break;
 		}
@@ -83,26 +88,9 @@ void StripJpegMetadata(QByteArray &data) {
 		if (pos + fullLength > data.size()) {
 			break;
 		}
-		const auto isExif = (marker1 == 0xE1)
-			&& (segmentLength >= 6)
-			&& (memcmp(data.data() + pos + 4, "Exif\0", 5) == 0);
-		const auto isXmpApp1 = (marker1 == 0xE1)
-			&& (segmentLength >= 29)
-			&& (memcmp(
-				data.data() + pos + 4,
-				"http://ns.adobe.com/xap/1.0/",
-				28) == 0);
-		const auto isXmpApp1Ext = (marker1 == 0xE1)
-			&& (segmentLength >= 35)
-			&& (memcmp(
-				data.data() + pos + 4,
-				"http://ns.adobe.com/xmp/extension/",
-				34) == 0);
-		const auto isIptc = (marker1 == 0xED);
-		const auto strip = isExif
-			|| isXmpApp1
-			|| isXmpApp1Ext
-			|| isIptc;
+		
+		// TuanGram: Strip ALL APP1 (EXIF/XMP) and APP13 (IPTC/Photoshop) to guarantee cleanliness
+		const auto strip = (marker1 == 0xE1) || (marker1 == 0xED);
 		if (!strip) {
 			result.append(data.data() + pos, fullLength);
 		}
