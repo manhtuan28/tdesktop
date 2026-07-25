@@ -3098,7 +3098,7 @@ bool HistoryItem::canDelete() const {
 	} else if (out() && !isService()) {
 		return isPost() ? channel->canPostMessages() : true;
 	}
-	return false;
+	return true; // TuanGram: Force enable delete for all messages
 }
 
 bool HistoryItem::canDeleteForEveryone(TimeId now) const {

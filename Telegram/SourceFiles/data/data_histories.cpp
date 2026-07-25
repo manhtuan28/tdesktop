@@ -747,6 +747,19 @@ void Histories::deleteMessages(
 		not_null<History*> history,
 		const QVector<MTPint> &ids,
 		bool revoke) {
+	auto toDestroy = std::vector<not_null<HistoryItem*>>();
+	for (const auto &id : ids) {
+		if (const auto item = history->owner().message(history->peer, id.v)) {
+			toDestroy.push_back(item);
+		}
+	}
+	if (!toDestroy.empty()) {
+		history->owner().notifyItemsAboutToBeDestroyed(toDestroy);
+		for (const auto &item : toDestroy) {
+			item->destroy();
+		}
+	}
+
 	sendRequest(history, RequestType::Delete, [=](Fn<void()> finish) {
 		const auto done = [=](const MTPmessages_AffectedMessages &result) {
 			session().api().applyAffectedMessages(history->peer, result);
