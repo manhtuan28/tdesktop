@@ -71,7 +71,15 @@ parts:
         version="$version-beta"
       fi
 
-      version="${version}$(git describe --tags --always 2>/dev/null | sed 's,^v[^-]\+,,')"
+      # With tags present, describe gives "v7.0.6-12-gabc1234" and the sed
+      # leaves "-12-gabc1234". With no tags it gives a bare short hash, which
+      # must not be glued straight onto the version ("7.0.66ce2cbf949").
+      suffix=$(git describe --tags --always 2>/dev/null | sed 's,^v[^-]\+,,')
+      case "$suffix" in
+        "$version" | "") ;;
+        -*) version="${version}${suffix}" ;;
+        *) version="${version}+${suffix}" ;;
+      esac
 
       craftctl set version="$version"
     override-build: |

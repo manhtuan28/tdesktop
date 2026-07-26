@@ -45,6 +45,59 @@ jobs:
     uses: ./.github/workflows/snap.yml
     secrets: inherit
 
+  launchpad:
+    name: Launchpad source package
+    needs: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+
+      - name: Install packaging tools.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends devscripts debhelper dput
+
+      - name: Download the Linux build.
+        uses: actions/download-artifact@v7
+        with:
+          name: Linux-x64
+          path: linux-artifact/
+
+      - name: Build the source package.
+        run: |
+          VERSION=$(grep "^AppVersionStr " Telegram/build/version | awk '{print $2}')
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+
+          # The Linux job ships a portable tarball; take the binary out of it
+          # instead of building Telegram a second time.
+          mkdir -p extracted
+          tar -xJf linux-artifact/tuangram-${VERSION}-linux-x64.tar.xz -C extracted
+          test -f extracted/Telegram
+
+          # Unsigned on purpose: the signing key stays on your machine.
+          # Launchpad accepts the upload only after you debsign it.
+          for series in noble jammy; do
+            ./launchpad/ppa_upload_ci.sh "$VERSION" extracted/Telegram "" "$series" 1
+          done
+
+          # Ship only the upload set; the unpacked source tree in
+          # launchpad_build/ also contains the binary and is not needed.
+          mkdir -p ppa
+          find launchpad_build -maxdepth 1 -type f \
+            \( -name '*.dsc' -o -name '*.changes' -o -name '*.buildinfo' \
+               -o -name '*.tar.gz' -o -name '*.tar.xz' \) \
+            -exec mv {} ppa/ \;
+          ls -la ppa/
+
+      - uses: actions/upload-artifact@v7
+        name: Upload the source package.
+        with:
+          name: Launchpad-source
+          path: ppa/
+
   release:
     name: Create GitHub Release
     needs: [build-linux, build-windows, build-mac, build-snap]
@@ -58,6 +111,10 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@v7
         with:
+          # Name the artifacts explicitly. Downloading everything also picks up
+          # docker/build-push-action's "*.dockerbuild" build record, which is
+          # not a zip and makes the whole step fail after 5 retries.
+          pattern: '{Windows-x64,Linux-x64,macOS,Launchpad-source,*.snap}'
           merge-multiple: false
           path: artifacts/
 

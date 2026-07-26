@@ -1,21 +1,26 @@
 #!/bin/bash
 set -e
 
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <version> <binary_path> <gpg_key_id>"
-    echo "Example: $0 7.0.6 out/Release/Telegram B4E8F7726DAE1918924DF426AB5084E43E672D45"
+if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
+    echo "Usage: $0 <version> <binary_path> [gpg_key_id] [series] [ppa_revision]"
+    echo "Example: $0 7.0.6 out/Release/Telegram B4E8F7726DAE1918924DF426AB5084E43E672D45 noble 1"
+    echo
+    echo "gpg_key_id may be empty or omitted to build an UNSIGNED source package"
+    echo "(useful in CI); sign it locally with debsign before dput."
     exit 1
 fi
 
 VERSION="$1"
 BINARY_PATH="$2"
-GPG_KEY="$3"
+GPG_KEY="${3:-}"
+SERIES="${4:-noble}"
+PPA_REVISION="${5:-1}"
 
 PKG_NAME="tuangram"
 # The runtime desktop-file name is hardcoded in specific_linux.cpp, so the entry
 # and the icons must keep the org.telegram.desktop id even though we rebranded.
 DESKTOP_ID="org.telegram.desktop"
-DEB_VERSION="${VERSION}-1ppa3"
+DEB_VERSION="${VERSION}-${PPA_REVISION}ppa1~${SERIES}1"
 PPA_URL="ppa:tuancute28/telegram"
 EMAIL="buimanhtuan2k4@gmail.com"
 AUTHOR="Manh Tuan"
@@ -39,6 +44,13 @@ fi
 
 # Copy resources
 cp "lib/xdg/$DESKTOP_ID.desktop" "$BUILD_DIR/$DESKTOP_ID.desktop"
+# The shipped entry assumes "Telegram" is on PATH; point it at the real
+# install location instead. Keep Icon= untouched (see debian/install).
+sed -i \
+    -e "s|^TryExec=Telegram$|TryExec=/opt/$PKG_NAME/Telegram|" \
+    -e "s|^Exec=Telegram -- %U$|Exec=/opt/$PKG_NAME/Telegram -- %U|" \
+    -e "s|^Exec=Telegram -quit$|Exec=/opt/$PKG_NAME/Telegram -quit|" \
+    "$BUILD_DIR/$DESKTOP_ID.desktop"
 cp Telegram/Resources/art/icon256.png "$BUILD_DIR/$DESKTOP_ID.png"
 
 # Create orig tarball
@@ -66,9 +78,8 @@ Homepage: https://github.com/manhtuan28/tdesktop
 
 Package: $PKG_NAME
 Architecture: amd64
-Depends: \${shlibs:Depends}, \${misc:Depends}, libx11-xcb1, libxcb1, libgl1, libgl1-mesa-glx | libgl1-mesa-dri, libpulse0, libxkbcommon0
+Depends: \${shlibs:Depends}, \${misc:Depends}, libx11-6, libx11-xcb1, libxcb1, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-xkb1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libfontconfig1, libglib2.0-0, libgl1, libpulse0, zlib1g
 Conflicts: telegram-desktop
-Replaces: telegram-desktop
 Description: TuanGram - Custom Telegram Desktop Build
  Fast and secure desktop PC app, perfectly synced with your mobile phone.
  .
@@ -89,40 +100,47 @@ EOF
 # debian/changelog
 DATE=$(date -R)
 cat <<EOF > "$BUILD_DIR/debian/changelog"
-$PKG_NAME ($DEB_VERSION) noble; urgency=medium
+$PKG_NAME ($DEB_VERSION) $SERIES; urgency=medium
 
-  * TuanGram custom Telegram Desktop release (Product Build).
-  * Automatically defaults to Vietnamese (vi) language.
-  * Unlocked all Telegram Premium features.
-  * Bypassed Stars fee for premium actions.
-  * Blocked all sponsored messages and ads.
-  * Increased app maximum limits (pins, folders, etc.) to 99999.
-  * Enhanced Linux GUI integration and stability.
-  * Auto-strip EXIF/GPS metadata from photos before upload.
-  * Ghost Mode: no read receipts and no typing indicators sent.
-  * Content Unlocker: bypass forward/save/copy/screenshot restrictions.
-  * Unlocked Articles (Rich Messages) creation tool
-  * Unlocked Todo Lists for non-Premium users
-  * Anti-Recall: View deleted messages
-  * Anti-TTL: View self-destructing media without time limit
-  * Show IDs: Display Peer ID in profile.
-  * Outgoing Translation: Translate messages before sending natively.
-  * Real-time Translation Unlocked: Fully unlocked for all users.
-  * Safe Local Deletion: Delete channel/megagroup messages without crash.
-  * Global Search Categorization: Replaced standard search with precise category tabs (Chats, Channels, Apps, Messages, Media, Links, Files, Music, Voice) and eliminated cross-contamination of search results.
+  * TuanGram custom Telegram Desktop build, renamed so that it installs
+    alongside the official telegram-desktop package instead of replacing it.
+  * Defaults to Vietnamese on first start.
+  * Client-side Premium unlock: raised pin, folder and chat-per-folder limits.
+  * Blocks all sponsored messages and ads.
+  * Auto-strips EXIF/GPS metadata from photos and images before upload.
+  * Ghost mode (no read receipts, no typing status), switchable in
+    Settings > Advanced.
+  * Content unlocker: copy, save and forward from protected chats.
+  * Unlocked article editor and todo lists without Premium.
+  * Anti-recall and anti-TTL: keep deleted and self-destructing media visible.
+  * Shows peer IDs in profiles.
+  * Translate outgoing messages before sending; real-time translation bar
+    unlocked for standard accounts.
+  * Local deletion for channel and megagroup messages the server refuses to
+    delete, instead of an error.
+  * Media filters (Media, Links, Files, Music, Voice) in global search.
+  * Auto-update is disabled; new versions are published on GitHub Releases.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF
 
 # debian/install
+# Everything lives under /opt/tuangram, matching the .deb produced by
+# linux.yml, so this package can never overwrite a file owned by the official
+# telegram-desktop package. /usr/bin/tuangram is a symlink created in
+# debian/links. The .desktop and icon basenames must stay org.telegram.desktop
+# because specific_linux.cpp hardcodes that application id.
 cat <<EOF > "$BUILD_DIR/debian/install"
-Telegram usr/bin/
+Telegram opt/$PKG_NAME/
 $DESKTOP_ID.desktop usr/share/applications/
 $DESKTOP_ID.png usr/share/icons/hicolor/256x256/apps/
 EOF
 if [ -f "$BUILD_DIR/Updater" ]; then
-    echo "Updater usr/bin/" >> "$BUILD_DIR/debian/install"
+    echo "Updater opt/$PKG_NAME/" >> "$BUILD_DIR/debian/install"
 fi
+
+# debian/links
+echo "opt/$PKG_NAME/Telegram usr/bin/$PKG_NAME" > "$BUILD_DIR/debian/links"
 
 # debian/rules
 cat <<EOF > "$BUILD_DIR/debian/rules"
@@ -152,9 +170,24 @@ chmod +x "$BUILD_DIR/debian/rules"
 
 # Build source package
 cd "$BUILD_DIR"
-dpkg-buildpackage -S -sa -d -k"$GPG_KEY" -p"gpg --batch --pinentry-mode loopback"
+if [ -n "$GPG_KEY" ]; then
+    dpkg-buildpackage -S -sa -d -k"$GPG_KEY" -p"gpg --batch --pinentry-mode loopback"
+else
+    # Unsigned: Launchpad will reject this until it is signed. Sign it with
+    #   debsign -k <KEYID> launchpad_build/*_source.changes
+    # and then upload with dput.
+    echo "No GPG key given, building an UNSIGNED source package."
+    dpkg-buildpackage -S -sa -d -us -uc
+fi
 cd ../../
 
 echo "=========================================================="
 echo " Source package created successfully in $DIR/"
+ls -1 "$DIR"/*.dsc "$DIR"/*.changes "$DIR"/*.tar.* 2>/dev/null || true
+if [ -z "$GPG_KEY" ]; then
+    echo
+    echo " UNSIGNED. Before uploading, run:"
+    echo "   debsign -k <YOUR_KEY_ID> $DIR/*_source.changes"
+    echo "   dput $PPA_URL $DIR/*_source.changes"
+fi
 echo "=========================================================="

@@ -38,6 +38,11 @@ jobs:
       UPLOAD_ARTIFACT: "true"
       ONLY_CACHE: "false"
       IMAGE_TAG: tdesktop:centos_env
+      # docker/build-push-action uploads a "*.dockerbuild" build record as a
+      # workflow artifact. It is useless here and the release job chokes on it
+      # (it is not a zip, so download-artifact fails after 5 retries).
+      DOCKER_BUILD_RECORD_UPLOAD: "false"
+      DOCKER_BUILD_SUMMARY: "false"
 
     steps:
       - name: Clone.
