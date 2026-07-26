@@ -5771,7 +5771,7 @@ void HistoryWidget::translateAndSend(Api::SendOptions options) {
 			send(options);
 		}
 	}).fail([=](const MTP::Error &error) {
-		_controller->showToast(tr::lng_fail_text(tr::now));
+		controller()->showToast(error.type());
 	}).send();
 }
 
