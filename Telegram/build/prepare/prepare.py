@@ -483,9 +483,14 @@ win:
         make ^
         mingw-w64-x86_64-diffutils ^
         mingw-w64-x86_64-gperf ^
-        mingw-w64-x86_64-nasm ^
         mingw-w64-x86_64-perl ^
         mingw-w64-x86_64-pkgconf
+
+    # nasm is pinned: 3.02 segfaults while emitting CodeView debug info
+    # (the -gcv8 flag libvpx passes in its Debug configuration), which
+    # corrupts .obj files and breaks the libvpx build. 2.16.03 is fine.
+    bash -c "sed -i '/^\\[options\\]/a IgnorePkg = mingw-w64-x86_64-nasm' /etc/pacman.conf"
+    pacman -U --noconfirm https://repo.msys2.org/mingw/mingw64/mingw-w64-x86_64-nasm-2.16.03-1-any.pkg.tar.zst
 """, 'ThirdParty')
 
 stage('python', """
