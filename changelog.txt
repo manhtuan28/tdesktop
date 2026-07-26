@@ -1,4 +1,4 @@
-7.0.6-tuancute (26.07.26)
+7.0.6 (26.07.26)
 
 - Add "Translate and Send" functionality for outgoing messages with target language selection.
 - Unlock Real-time translation bar for all standard accounts without Premium.

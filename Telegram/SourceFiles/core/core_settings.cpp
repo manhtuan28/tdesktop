@@ -1891,6 +1891,25 @@ rpl::producer<LanguageId> Settings::translateToValue() const {
 	}) | rpl::distinct_until_changed();
 }
 
+void Settings::setTranslateOutgoingTo(LanguageId id) {
+	_translateOutgoingToRaw = int(id.value);
+}
+
+LanguageId Settings::translateOutgoingTo() const {
+	if (const auto raw = _translateOutgoingToRaw.current()) {
+		return { QLocale::Language(raw) };
+	}
+	return { QLocale::Vietnamese };
+}
+
+rpl::producer<LanguageId> Settings::translateOutgoingToValue() const {
+	return _translateOutgoingToRaw.value() | rpl::map([=](int raw) {
+		return raw
+			? LanguageId{ QLocale::Language(raw) }
+			: LanguageId{ QLocale::Vietnamese };
+	}) | rpl::distinct_until_changed();
+}
+
 void Settings::setSkipTranslationLanguages(
 		std::vector<LanguageId> languages) {
 	_skipTranslationLanguages = std::move(languages);

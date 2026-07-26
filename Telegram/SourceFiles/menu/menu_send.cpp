@@ -757,7 +757,7 @@ FillMenuResult FillSendMenu(
 	}
 	if (sending && type != Type::SilentOnly && type != Type::Reminder) {
 		menu->addAction(
-			"Dịch và gửi...",
+			u"Dịch và gửi..."_q,
 			[=] { action({ .type = ActionType::TranslateOutgoing }, details); },
 			&icons.menuSchedule); // Fallback icon since menuTranslate may not be available in ComposeIcons
 	}

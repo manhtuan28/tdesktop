@@ -31,8 +31,14 @@ jobs:
       
       - name: Prepare Release Files
         run: |
+          mkdir -p artifacts
           mkdir -p release
           find artifacts -type f -exec mv {} release/ \;
+          FILE_COUNT=$(find release -type f | wc -l)
+          echo "Found $FILE_COUNT release file(s)"
+          if [ "$FILE_COUNT" -eq 0 ]; then
+            echo "Warning: No artifacts were found. Upstream builds may have failed."
+          fi
           ls -la release/
 
       - name: Get version from tag.

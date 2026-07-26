@@ -1665,7 +1665,7 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 	Ui::AddSkip(container);
 	const auto translateOutgoingTo = Settings::AddButtonWithLabel(
 		container,
-		"Dịch tin nhắn gửi đi sang...",
+		rpl::single(u"Dịch tin nhắn gửi đi sang..."_q),
 		Core::App().settings().translateOutgoingToValue(
 		) | rpl::map([](LanguageId id) {
 			return Ui::LanguageName(id);
@@ -1681,7 +1681,7 @@ void LanguageBox::setupTop(not_null<Ui::VerticalLayout*> container) {
 		));
 	});
 	Ui::AddSkip(container);
-	Ui::AddDividerText(container, "Chọn ngôn ngữ mặc định để dịch tin nhắn gửi đi.");
+	Ui::AddDividerText(container, rpl::single(u"Chọn ngôn ngữ mặc định để dịch tin nhắn gửi đi."_q));
 }
 
 void LanguageBox::keyPressEvent(QKeyEvent *e) {

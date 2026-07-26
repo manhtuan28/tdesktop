@@ -5734,7 +5734,7 @@ void HistoryWidget::translateAndSend(Api::SendOptions options) {
 		return;
 	}
 
-	const auto to = session().settings().translateOutgoingTo();
+	const auto to = Core::App().settings().translateOutgoingTo();
 	
 	auto requestText = QVector<MTPTextWithEntities>();
 	requestText.push_back(MTP_textWithEntities(
