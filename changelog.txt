@@ -5,6 +5,7 @@
 - Fix application crash when deleting other people's messages or choosing "delete for me only" in Megagroups/Channels by enforcing safe local-only deletion.
 - Fix metadata stripping not properly removing EXIF/GPS data from images sent as Photos.
 - Optimize Premium Star visibility to only display on your own account.
+- Add global search tabs (Chats, Channels, Apps, Messages, Media, Links, Files, Music, Voice) and improve search accuracy by suppressing irrelevant results.
 
 7.0.5 (23.07.26)
 

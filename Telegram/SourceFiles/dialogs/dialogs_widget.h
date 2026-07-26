@@ -54,6 +54,7 @@ class RequestsBar;
 class MoreChatsBar;
 class JumpDownButton;
 class ElasticScroll;
+class SubsectionSlider;
 template <typename Widget>
 class FadeWrapScaled;
 template <typename Widget>
@@ -89,6 +90,19 @@ class Suggestions;
 class ChatSearchIn;
 enum class ChatSearchTab : uchar;
 enum class HashOrCashtag : uchar;
+
+enum class GlobalSearchTab : uchar {
+	All,
+	Chats,
+	Channels,
+	Apps,
+	Messages,
+	Media,
+	Links,
+	Files,
+	Music,
+	Voice,
+};
 
 class Widget final : public Window::AbstractSectionWidget {
 public:
@@ -422,9 +436,10 @@ private:
 	QString _searchQuery;
 	PeerData *_searchQueryFrom = nullptr;
 	std::vector<Data::ReactionId> _searchQueryTags;
-	ChatSearchTab _searchQueryTab = {};
-	ChannelData *_searchQueryCommunity = nullptr;
-	ChatTypeFilter _searchQueryFilter = {};
+	ChatSearchTab _searchQueryTab = ChatSearchTab::MyMessages;
+	GlobalSearchTab _searchGlobalTab = GlobalSearchTab::All;
+	std::unique_ptr<Ui::SubsectionSlider> _globalSearchTabs;
+	ChatTypeFilter _searchQueryFilter = ChatTypeFilter::All;
 	bool _searchQueryFromArchive = true;
 
 	Ui::Controls::SwipeBackResult _swipeBackData;

@@ -35,7 +35,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/chat_filters_tabs_strip.h"
 #include "ui/widgets/elastic_scroll.h"
-#include "ui/widgets/fields/input_field.h"
+#include "ui/widgets/menu/menu_add_action_callback_factory.h"
+#include "ui/unread_badge.h"
+#include "ui/widgets/discrete_sliders.h"
+#include "boxes/filters/edit_filter_box.h"
 #include "ui/wrap/fade_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
@@ -99,6 +102,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_info.h"
 #include "styles/style_window.h"
+#include "styles/style_media_player.h"
+#include "styles/style_menu_icons.h"
+#include "styles/style_settings.h"
 #include "base/qt/qt_common_adapters.h"
 
 #include <QtCore/QMimeData>
@@ -429,6 +435,26 @@ Widget::Widget(
 , _searchTimer([=] { search(); })
 , _peerSearch(&controller->session(), Api::PeerSearch::Type::WithSponsored)
 , _singleMessageSearch(&controller->session()) {
+	_globalSearchTabs = std::make_unique<Ui::SettingsSlider>(this);
+	_globalSearchTabs->addSection(u"Tất cả"_q);
+	_globalSearchTabs->addSection(u"Chat"_q);
+	_globalSearchTabs->addSection(u"Kênh"_q);
+	_globalSearchTabs->addSection(u"Ứng dụng"_q);
+	_globalSearchTabs->addSection(u"Bài viết"_q);
+	_globalSearchTabs->addSection(u"Media"_q);
+	_globalSearchTabs->addSection(u"Link"_q);
+	_globalSearchTabs->addSection(u"File"_q);
+	_globalSearchTabs->addSection(u"Nhạc"_q);
+	_globalSearchTabs->addSection(u"Thoại"_q);
+	_globalSearchTabs->hide();
+	_globalSearchTabs->sectionActivated(
+	) | rpl::on_next([=](int index) {
+		if (_searchGlobalTab != static_cast<GlobalSearchTab>(index)) {
+			_searchGlobalTab = static_cast<GlobalSearchTab>(index);
+			search();
+		}
+	}, lifetime());
+
 	const auto makeChildListShown = [](PeerId peerId, float64 shown) {
 		return InnerWidget::ChildListShown{ peerId, shown };
 	};
@@ -3181,6 +3207,14 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 }
 
 bool Widget::peerSearchRequired() const {
+	if (_searchGlobalTab == GlobalSearchTab::Messages
+		|| _searchGlobalTab == GlobalSearchTab::Media
+		|| _searchGlobalTab == GlobalSearchTab::Links
+		|| _searchGlobalTab == GlobalSearchTab::Files
+		|| _searchGlobalTab == GlobalSearchTab::Music
+		|| _searchGlobalTab == GlobalSearchTab::Voice) {
+		return false;
+	}
 	return _searchState.filterChatsList() && !_openedForum;
 }
 
@@ -3470,13 +3504,31 @@ void Widget::requestMessages(bool fromStart) {
 	const auto folderId = (_searchQueryTab == ChatSearchTab::Archive)
 		? Data::Folder::kId
 		: 0;
+
+	if (_searchGlobalTab == GlobalSearchTab::Chats
+		|| _searchGlobalTab == GlobalSearchTab::Channels
+		|| _searchGlobalTab == GlobalSearchTab::Apps) {
+		return;
+	}
+
+	const auto messagesFilter = [&] {
+		switch (_searchGlobalTab) {
+		case GlobalSearchTab::Media: return MTP_inputMessagesFilterPhotoVideo();
+		case GlobalSearchTab::Links: return MTP_inputMessagesFilterUrl();
+		case GlobalSearchTab::Files: return MTP_inputMessagesFilterDocument();
+		case GlobalSearchTab::Music: return MTP_inputMessagesFilterMusic();
+		case GlobalSearchTab::Voice: return MTP_inputMessagesFilterRoundVoice();
+		default: return MTP_inputMessagesFilterEmpty();
+		}
+	}();
+
 	_searchProcess.requestId = session().api().request(
 		MTPmessages_SearchGlobal(
 			MTP_flags(flags),
 			MTP_int(folderId),
 			(community ? community->inputChannel() : MTPInputChannel()),
 			MTP_string(_searchQuery),
-			MTP_inputMessagesFilterEmpty(),
+			messagesFilter,
 			MTP_int(0), // min_date
 			MTP_int(0), // max_date
 			MTP_int(fromStart ? 0 : _searchProcess.nextRate),
@@ -3638,6 +3690,24 @@ void Widget::searchReceived(
 }
 
 void Widget::peerSearchReceived(Api::PeerSearchResult result) {
+	if (_searchGlobalTab == GlobalSearchTab::Chats
+		|| _searchGlobalTab == GlobalSearchTab::Channels
+		|| _searchGlobalTab == GlobalSearchTab::Apps) {
+		auto filter = [&](not_null<PeerData*> peer) {
+			if (_searchGlobalTab == GlobalSearchTab::Chats) {
+				return (peer->isUser() && !peer->asUser()->isBot()) || peer->isChat() || peer->isMegagroup();
+			} else if (_searchGlobalTab == GlobalSearchTab::Channels) {
+				return peer->isBroadcast();
+			} else if (_searchGlobalTab == GlobalSearchTab::Apps) {
+				return peer->isUser() && peer->asUser()->isBot();
+			}
+			return true;
+		};
+		result.chats.erase(
+			std::remove_if(result.chats.begin(), result.chats.end(), [&](not_null<PeerData*> peer) {
+				return !filter(peer);
+			}), result.chats.end());
+	}
 	_inner->peerSearchReceived(std::move(result));
 	listScrollUpdated();
 	update();
@@ -4496,6 +4566,23 @@ void Widget::updateControlsGeometry() {
 			st::lineWidth);
 	}
 
+	const auto showGlobalSearchTabs = !_openedForum
+		&& !_searchState.community
+		&& !searchInPeer()
+		&& (!_searchState.query.isEmpty() || searchHasFocus());
+
+	int globalSearchTabsHeight = 0;
+	if (_globalSearchTabs) {
+		if (showGlobalSearchTabs) {
+			_globalSearchTabs->show();
+			_globalSearchTabs->resizeToWidth(scrollWidth);
+			globalSearchTabsHeight = _globalSearchTabs->height();
+			_globalSearchTabs->moveToLeft(0, expandedStoriesTop, scrollWidth);
+		} else {
+			_globalSearchTabs->hide();
+		}
+	}
+
 	updateLockUnlockPosition();
 
 	auto bottomSkip = 0;
@@ -4545,6 +4632,7 @@ void Widget::updateControlsGeometry() {
 	}
 	_updateScrollGeometryCached = [=] {
 		const auto frozenBarTop = expandedStoriesTop
+			+ globalSearchTabsHeight
 			+ ((!_stories || _stories->isHidden()) ? 0 : _aboveScrollAdded);
 		if (_frozenAccountBar) {
 			_frozenAccountBar->move(0, frozenBarTop);

@@ -21,6 +21,7 @@ This is a **custom modified version** of the official [Telegram][telegram] messe
 * **Outgoing Translation**: Natively translate outgoing messages before sending directly from the Send menu.
 * **Real-time Translation Unlocked**: Real-time translation bar is fully unlocked for regular accounts.
 * **Safe Local Message Deletion**: Allows you to delete messages in channels or megagroups locally on your end without server crashes.
+* **Global Search Categorization**: Replaced standard search with precise category tabs (Chats, Channels, Apps, Messages, Media, Links, Files, Music, Voice) and eliminated cross-contamination of search results.
 
 ---
 

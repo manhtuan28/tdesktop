@@ -12,7 +12,7 @@ fi
 echo "Sử dụng GPG Key: $GPG_KEY"
 
 # Prepare variables
-TELEGRAM_VERSION=$(grep "AppVersionStr " Telegram/build/version | awk '{print $2}')
+TELEGRAM_VERSION=$(grep "^AppVersionStr " Telegram/build/version | awk '{print $2}')
 if [ -z "$TELEGRAM_VERSION" ]; then TELEGRAM_VERSION="0.0.0"; fi
 VERSION="${TELEGRAM_VERSION}-dev-$(date +%Y%m%d%H%M)"
 BINARY_PATH="../out/Release/Telegram"

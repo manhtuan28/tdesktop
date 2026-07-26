@@ -3,7 +3,7 @@ set -e
 
 if [ "$#" -ne 3 ]; then
     echo "Usage: $0 <version> <binary_path> <gpg_key_id>"
-    echo "Example: $0 7.0.4 out/Release/Telegram B4E8F7726DAE1918924DF426AB5084E43E672D45"
+    echo "Example: $0 7.0.6 out/Release/Telegram B4E8F7726DAE1918924DF426AB5084E43E672D45"
     exit 1
 fi
 
@@ -12,7 +12,7 @@ BINARY_PATH="$2"
 GPG_KEY="$3"
 
 PKG_NAME="telegram-desktop"
-DEB_VERSION="${VERSION}-1ppa2"
+DEB_VERSION="${VERSION}-1ppa3"
 PPA_URL="ppa:tuancute28/telegram"
 EMAIL="buimanhtuan2k4@gmail.com"
 AUTHOR="Manh Tuan"
@@ -104,6 +104,7 @@ $PKG_NAME ($DEB_VERSION) noble; urgency=medium
   * Outgoing Translation: Translate messages before sending natively.
   * Real-time Translation Unlocked: Fully unlocked for all users.
   * Safe Local Deletion: Delete channel/megagroup messages without crash.
+  * Global Search Categorization: Replaced standard search with precise category tabs (Chats, Channels, Apps, Messages, Media, Links, Files, Music, Voice) and eliminated cross-contamination of search results.
 
  -- $AUTHOR <$EMAIL>  $DATE
 EOF
