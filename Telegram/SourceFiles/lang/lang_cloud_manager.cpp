@@ -142,6 +142,34 @@ void NotReadyBox::prepare() {
 	}, lifetime());
 }
 
+// The default language pack is a community one and may be unavailable
+// server-side. In that case we fall back to its official base language
+// instead of dropping the user to English. The fallback is used exactly
+// when the default pack was rejected, so it must never resolve to the id it
+// falls back from: that would re-request the same missing pack, get rejected
+// again and keep switching in a loop. When the default carries no usable
+// base language we go to English, which is always available server-side.
+[[nodiscard]] Language FallbackLanguage() {
+	const auto english = Language{
+		u"en"_q,
+		u"en"_q,
+		QString(),
+		u"English"_q,
+		u"English"_q,
+	};
+	const auto base = DefaultLanguage();
+	if (base.baseId.isEmpty() || base.baseId == base.id) {
+		return english;
+	}
+	return Language{
+		base.baseId,
+		base.baseId,
+		QString(),
+		base.name,
+		base.nativeName,
+	};
+}
+
 } // namespace
 
 Language ParseLanguage(const MTPLangPackLanguage &data) {
@@ -226,6 +254,19 @@ void CloudManager::requestLangPackDifference(Pack pack) {
 	if (code.isEmpty()) {
 		return;
 	}
+	const auto fail = [=](const MTP::Error &error) {
+		packRequestId(pack) = 0;
+		if (pack == Pack::Current
+			&& code == DefaultLanguageId()
+			&& error.type().startsWith(u"LANG_"_q)) {
+			// Our default pack is gone from the server, switch to the
+			// fallback language instead of staying on a missing pack.
+			const auto fallback = FallbackLanguage();
+			if (fallback.id != code) {
+				performSwitch(fallback);
+			}
+		}
+	};
 	if (version > 0) {
 		packRequestId(pack) = _api->request(MTPlangpack_GetDifference(
 			MTP_string(CloudLangPackName()),
@@ -234,9 +275,7 @@ void CloudManager::requestLangPackDifference(Pack pack) {
 		)).done([=](const MTPLangPackDifference &result) {
 			packRequestId(pack) = 0;
 			applyLangPackDifference(result);
-		}).fail([=] {
-			packRequestId(pack) = 0;
-		}).send();
+		}).fail(fail).send();
 	} else {
 		packRequestId(pack) = _api->request(MTPlangpack_GetLangPack(
 			MTP_string(CloudLangPackName()),
@@ -244,16 +283,18 @@ void CloudManager::requestLangPackDifference(Pack pack) {
 		)).done([=](const MTPLangPackDifference &result) {
 			packRequestId(pack) = 0;
 			applyLangPackDifference(result);
-		}).fail([=] {
-			packRequestId(pack) = 0;
-		}).send();
+		}).fail(fail).send();
 	}
 }
 
 void CloudManager::setSuggestedLanguage(const QString &langCode) {
-	if (Lang::LanguageIdOrDefault(langCode) != Lang::DefaultLanguageId()) {
+	const auto suggested = Lang::LanguageIdOrDefault(langCode);
+	if (suggested != Lang::DefaultLanguageId()
+		&& suggested != FallbackLanguage().id) {
 		_suggestedLanguage = langCode;
 	} else {
+		// Suggesting the language we already show by default is not
+		// a suggestion at all.
 		_suggestedLanguage = QString();
 	}
 
@@ -261,12 +302,10 @@ void CloudManager::setSuggestedLanguage(const QString &langCode) {
 		_languageWasSuggested = true;
 		_firstLanguageSuggestion.fire({});
 
-		if (Core::App().offerLegacyLangPackSwitch()
-			&& _langpack.id().isEmpty()
-			&& !_suggestedLanguage.isEmpty()) {
-			_offerSwitchToId = _suggestedLanguage;
-			offerSwitchLangPack();
-		}
+		// A fresh install intentionally comes up in the default language pack,
+		// so we don't automatically offer to switch away from it here. The
+		// suggested language is still offered as an explicit link on the intro
+		// screen and can be chosen any time in Settings.
 	}
 }
 
@@ -403,7 +442,25 @@ bool CloudManager::canApplyWithoutRestart(const QString &id) const {
 }
 
 void CloudManager::resetToDefault() {
-	performSwitch(DefaultLanguage());
+	// This is called when the server rejects the language code we send, so
+	// switching to the same default again would only repeat the error.
+	const auto currentId = LanguageIdOrDefault(_langpack.id());
+	const auto fallback = FallbackLanguage();
+	const auto builtIn = u"en"_q;
+	if (_defaultFallbackTried) {
+		// Both the default pack and its fallback were rejected. Land on the
+		// built-in English strings, which never need a server round-trip.
+		if (currentId != builtIn) {
+			performSwitch({ builtIn, {}, {}, u"English"_q, u"English"_q });
+		}
+	} else if (currentId != DefaultLanguageId()) {
+		performSwitch(DefaultLanguage());
+	} else if (fallback.id != currentId) {
+		_defaultFallbackTried = true;
+		performSwitch(fallback);
+	} else {
+		_defaultFallbackTried = true;
+	}
 }
 
 void CloudManager::switchToLanguage(const QString &id) {

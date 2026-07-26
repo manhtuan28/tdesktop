@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "history/history_item_helpers.h"
 #include "history/view/history_view_element.h"
 #include "core/application.h"
+#include "core/core_settings.h"
 #include "apiwrap.h"
 
 namespace Data {
@@ -39,6 +40,27 @@ constexpr auto kReadRequestTimeout = 3 * crl::time(1000);
 constexpr auto kReportDeliveriesPerRequest = 50;
 
 } // namespace
+
+// TuanGram: the single source of truth for "the server would accept a delete
+// request for this message". HistoryItem::canDelete() intentionally stays more
+// permissive, because a message we may not delete on the server is still
+// removable from the local cache only.
+[[nodiscard]] bool CanDeleteMessageOnServer(not_null<HistoryItem*> item) {
+	if (item->topicRootId() == item->id) {
+		return false;
+	}
+	const auto channel = item->history()->peer->asChannel();
+	if (!channel) {
+		return !item->isGroupMigrate();
+	} else if (item->id == 1) {
+		return false;
+	} else if (channel->canDeleteMessages()) {
+		return true;
+	} else if (item->out() && !item->isService()) {
+		return item->isPost() ? channel->canPostMessages() : true;
+	}
+	return false;
+}
 
 MTPInputReplyTo ReplyToForMTP(
 		not_null<History*> history,
@@ -711,8 +733,57 @@ void Histories::sendReadRequests() {
 }
 
 void Histories::sendReadRequest(not_null<History*> history, State &state) {
-	state.willReadTill = 0;
+	Expects(state.willReadTill > state.sentReadTill);
+
+	if (Core::App().settings().ghostModeEnabled()) {
+		state.willReadTill = 0;
+		state.willReadWhen = 0;
+		return;
+	}
+
+	const auto tillId = state.sentReadTill = base::take(state.willReadTill);
 	state.willReadWhen = 0;
+	state.sentReadDone = false;
+	DEBUG_LOG(("Reading: sending request now with till %1."
+		).arg(tillId.bare));
+	sendRequest(history, RequestType::ReadInbox, [=](Fn<void()> finish) {
+		DEBUG_LOG(("Reading: sending request invoked with till %1."
+			).arg(tillId.bare));
+		const auto finished = [=] {
+			const auto state = lookup(history);
+			Assert(state != nullptr);
+
+			if (state->sentReadTill == tillId) {
+				state->sentReadDone = true;
+				if (history->unreadCountRefreshNeeded(tillId)) {
+					requestDialogEntry(history);
+				} else {
+					state->sentReadTill = 0;
+				}
+			} else {
+				Assert(!state->sentReadTill || state->sentReadTill > tillId);
+			}
+			history->validateMonoAndForumUnread(tillId);
+			sendReadRequests();
+			finish();
+		};
+		if (const auto channel = history->peer->asChannel()) {
+			return session().api().request(MTPchannels_ReadHistory(
+				channel->inputChannel(),
+				MTP_int(tillId)
+			)).done(finished).fail(finished).send();
+		} else {
+			return session().api().request(MTPmessages_ReadHistory(
+				history->peer->input(),
+				MTP_int(tillId)
+			)).done([=](const MTPmessages_AffectedMessages &result) {
+				session().api().applyAffectedMessages(history->peer, result);
+				finished();
+			}).fail([=] {
+				finished();
+			}).send();
+		}
+	});
 }
 
 void Histories::checkEmptyState(not_null<History*> history) {
@@ -747,10 +818,6 @@ void Histories::deleteMessages(
 		not_null<History*> history,
 		const QVector<MTPint> &ids,
 		bool revoke) {
-	if (history->peer->isChannel() && !revoke) {
-		history->requestChatListMessage();
-		return;
-	}
 	sendRequest(history, RequestType::Delete, [=](Fn<void()> finish) {
 		const auto done = [=](const MTPmessages_AffectedMessages &result) {
 			session().api().applyAffectedMessages(history->peer, result);
@@ -934,7 +1001,13 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
 				continue;
 			}
 			remove.push_back(item);
-			if (item->isRegular()) {
+			// TuanGram: "Safe Local Message Deletion". When the server would
+			// reject the delete we still drop the message from the local
+			// cache, instead of failing the whole request. This is decided
+			// per item and never derived from `revoke`, which is not even a
+			// parameter of channels.deleteMessages.
+			const auto localOnly = !CanDeleteMessageOnServer(item);
+			if (item->isRegular() && !localOnly) {
 				idsByPeer[history].push_back(MTP_int(itemId.msg));
 			}
 		}

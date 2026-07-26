@@ -436,7 +436,7 @@ HistoryWidget::HistoryWidget(
 		} else {
 			sendScheduled(action.options);
 		}
-	});
+	}, true);
 	_unblock->addClickHandler([=] { unblockUser(); });
 	_botStart->addClickHandler([=] { sendBotStartCommand(); });
 	_joinChannel->addClickHandler([=] { joinChannel(); });
@@ -3040,6 +3040,7 @@ void HistoryWidget::showHistory(
 
 	HistoryView::Element::ClearGlobal();
 
+	cancelTranslateOutgoing();
 	_saveEditMsgRequestId = 0;
 	_processingReplyItem = _replyEditMsg = nullptr;
 	_processingReplyTo = _replyTo = FullReplyTo();
@@ -5142,7 +5143,8 @@ TextWithEntities HistoryWidget::prepareTextForEditMsg() const {
 
 void HistoryWidget::setupSendMenu(
 		not_null<Ui::RpWidget*> button,
-		Fn<void(SendMenu::Action, SendMenu::Details)> action) {
+		Fn<void(SendMenu::Action, SendMenu::Details)> action,
+		bool translateOutgoing) {
 	using namespace SendMenu;
 	SetupMenuAndShortcuts(
 		button,
@@ -5157,7 +5159,23 @@ void HistoryWidget::setupSendMenu(
 			} else {
 				action(value, details);
 			}
-		});
+		},
+		nullptr,
+		nullptr,
+		(translateOutgoing
+			// Hide the item instead of leaving a click that does nothing:
+			// while editing a message or with a rich draft preview shown
+			// send() would not send the field text at all.
+			? Fn<bool()>([=] {
+				return _list
+					&& _field
+					&& _history
+					&& !_editMsgId
+					&& !_translateOutgoingRequestId
+					&& !shownRichMessage()
+					&& fieldHasSendText();
+			})
+			: nullptr));
 }
 
 void HistoryWidget::showAiComposeBox() {
@@ -5725,54 +5743,68 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
 			initialOptions));
 }
 
+void HistoryWidget::cancelTranslateOutgoing() {
+	if (const auto id = base::take(_translateOutgoingRequestId)) {
+		session().api().request(id).cancel();
+	}
+}
+
 void HistoryWidget::translateAndSend(Api::SendOptions options) {
-	if (!_list || !_field) {
+	if (!_list || !_field || !_history) {
+		return;
+	} else if (_translateOutgoingRequestId) {
+		// Non-reentrant, one translation at a time.
+		return;
+	} else if (_editMsgId || shownRichMessage()) {
+		// send() would route to saveEditMessage() / sendRichDraft(), so
+		// replacing the field text here would rewrite an unrelated message.
 		return;
 	}
 	const auto textWithTags = _field->getTextWithAppliedMarkdown();
 	if (textWithTags.text.isEmpty()) {
 		return;
 	}
-
-	const auto to = Core::App().settings().translateOutgoingTo();
-	
-	auto requestText = QVector<MTPTextWithEntities>();
-	requestText.push_back(MTP_textWithEntities(
-		MTP_string(textWithTags.text),
-		Api::EntitiesToMTP(
-			&session(),
-			TextUtilities::ConvertTextTagsToEntities(textWithTags.tags),
-			Api::ConvertOption::SkipLocal)));
-
-	session().api().request(MTPmessages_TranslateText(
-		MTP_flags(MTPmessages_TranslateText::Flag::f_text),
-		MTP_inputPeerEmpty(),
-		MTPVector<MTPint>(),
-		MTP_vector<MTPTextWithEntities>(requestText),
-		MTP_string(to.twoLetterCode()),
-		MTPstring()
-	)).done([=](const MTPmessages_TranslatedText &result) {
-		const auto &results = result.data().vresult().v;
-		if (!results.isEmpty()) {
-			const auto &translated = results.front().match(
-				[&](const MTPDtextWithEntities &data) {
-					return TextWithEntities{
-						qs(data.vtext()),
-						Api::EntitiesFromMTP(
-							&session(),
-							data.ventities().v)
-					};
-				}
-			);
-			_field->setTextWithTags({
-				translated.text,
-				TextUtilities::ConvertEntitiesToTextTags(translated.entities)
-			});
+	const auto weakHistory = base::make_weak(_history);
+	const auto finish = [=] {
+		_translateOutgoingRequestId = 0;
+		updateSendButtonType();
+	};
+	_translateOutgoingRequestId = SendMenu::RequestOutgoingTranslation(
+		&session(),
+		textWithTags,
+		crl::guard(this, [=](TextWithTags translated) {
+			finish();
+			if (!_list
+				|| !_field
+				|| !_history
+				|| (_history != weakHistory.get())
+				|| _editMsgId
+				|| shownRichMessage()) {
+				// The chat was switched or an edit was started meanwhile,
+				// sending the translation now would target the wrong message.
+				return;
+			} else if (_field->getTextWithAppliedMarkdown() != textWithTags) {
+				// The composer no longer holds the text we translated, most
+				// likely it was already sent or edited by hand.
+				return;
+			} else if (translated.text.isEmpty()) {
+				// Never wipe what the user typed.
+				controller()->showToast(
+					tr::lng_translate_outgoing_failed(tr::now));
+				return;
+			}
+			setFieldText(
+				translated,
+				TextUpdateEvent::SaveDraft,
+				Ui::InputField::HistoryAction::NewEntry);
 			send(options);
-		}
-	}).fail([=](const MTP::Error &error) {
-		controller()->showToast(error.type());
-	}).send();
+		}),
+		crl::guard(this, [=](QString error) {
+			finish();
+			controller()->showToast(error);
+		}));
+	updateSendButtonType();
+	controller()->showToast(tr::lng_translate_outgoing_progress(tr::now));
 }
 
 SendMenu::Details HistoryWidget::sendMenuDetails() const {
@@ -6607,10 +6639,11 @@ void HistoryWidget::updateSendButtonType() {
 		.starsToSend = stars,
 		.forbidden = forbidden,
 	});
-	_send->setDisabled(disabledBySlowmode
-		&& (type == Type::Send
-			|| type == Type::Record
-			|| type == Type::Round));
+	_send->setDisabled(_translateOutgoingRequestId
+		|| (disabledBySlowmode
+			&& (type == Type::Send
+				|| type == Type::Record
+				|| type == Type::Round)));
 
 	if (delay != 0) {
 		base::call_delayed(

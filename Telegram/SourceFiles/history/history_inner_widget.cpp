@@ -821,6 +821,8 @@ bool HistoryInner::hasSelectRestriction() const {
 		return false;
 	} else if (session().frozen()) {
 		return true;
+	} else if (_peer->allowsForwarding()) {
+		return false;
 	} else if (!_sharingDisallowed.current()) {
 		return false;
 	} else if (const auto chat = _peer->asChat()) {

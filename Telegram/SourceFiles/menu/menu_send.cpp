@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "menu/menu_checked_action.h"
 
 #include "api/api_common.h"
+#include "api/api_text_entities.h"
 #include "base/event_filter.h"
 #include "base/unixtime.h"
 #include "boxes/abstract_box.h"
@@ -17,6 +18,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "calls/group/calls_group_stars_box.h"
 #include "chat_helpers/compose/compose_show.h"
 #include "chat_helpers/stickers_emoji_pack.h"
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "core/shortcuts.h"
 #include "history/admin_log/history_admin_log_item.h"
 #include "history/view/media/history_view_sticker.h"
@@ -53,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "main/main_session.h"
 #include "apiwrap.h"
 #include "settings/sections/settings_premium.h"
+#include "spellcheck/spellcheck_types.h"
 #include "window/themes/window_theme.h"
 #include "window/section_widget.h"
 #include "styles/style_chat.h"
@@ -598,6 +602,10 @@ Fn<void(Action, Details)> DefaultCallback(
 		if (action.type == ActionType::Send) {
 			send(action.options);
 			return;
+		} else if (action.type == ActionType::TranslateOutgoing) {
+			// Only composers with their own callback handle this, never
+			// fall through to the schedule box here.
+			return;
 		}
 		auto box = HistoryView::PrepareScheduleBox(
 			guard,
@@ -611,6 +619,53 @@ Fn<void(Action, Details)> DefaultCallback(
 			strong->setCloseByOutsideClick(false);
 		}
 	};
+}
+
+mtpRequestId RequestOutgoingTranslation(
+		not_null<Main::Session*> session,
+		TextWithTags text,
+		Fn<void(TextWithTags)> done,
+		Fn<void(QString)> fail) {
+	Expects(done != nullptr);
+	Expects(fail != nullptr);
+
+	const auto to = Core::App().settings().translateOutgoingTo();
+	auto request = QVector<MTPTextWithEntities>();
+	request.push_back(MTP_textWithEntities(
+		MTP_string(text.text),
+		Api::EntitiesToMTP(
+			session,
+			TextUtilities::ConvertTextTagsToEntities(text.tags),
+			Api::ConvertOption::SkipLocal)));
+	return session->api().request(MTPmessages_TranslateText(
+		MTP_flags(MTPmessages_TranslateText::Flag::f_text),
+		MTP_inputPeerEmpty(),
+		MTPVector<MTPint>(),
+		MTP_vector<MTPTextWithEntities>(request),
+		MTP_string(to.twoLetterCode()),
+		MTPstring())
+	).done([=](const MTPmessages_TranslatedText &result) {
+		const auto &list = result.data().vresult().v;
+		auto translated = list.isEmpty()
+			? TextWithEntities()
+			: list.front().match([&](const MTPDtextWithEntities &data) {
+				return TextWithEntities{
+					qs(data.vtext()),
+					Api::EntitiesFromMTP(session, data.ventities().v),
+				};
+			});
+		if (translated.text.trimmed().isEmpty()) {
+			// Report an empty result, never wipe what the user typed.
+			done(TextWithTags());
+			return;
+		}
+		done({
+			translated.text,
+			TextUtilities::ConvertEntitiesToTextTags(translated.entities),
+		});
+	}).fail([=](const MTP::Error &error) {
+		fail(error.type());
+	}).send();
 }
 
 FillMenuResult AttachSendMenuEffect(
@@ -718,7 +773,8 @@ FillMenuResult FillSendMenu(
 		Details details,
 		Fn<void(Action, Details)> action,
 		const style::ComposeIcons *iconsOverride,
-		std::optional<QPoint> desiredPositionOverride) {
+		std::optional<QPoint> desiredPositionOverride,
+		bool translateOutgoing) {
 	const auto type = details.type;
 	const auto sending = (type != Type::Disabled);
 	const auto empty = !sending
@@ -755,11 +811,12 @@ FillMenuResult FillSendMenu(
 			[=] { action({ .type = ActionType::Schedule }, details); },
 			&icons.menuSchedule);
 	}
-	if (sending && type != Type::SilentOnly && type != Type::Reminder) {
+	if (translateOutgoing && sending) {
+		// ComposeIcons has no translate icon, reuse the schedule one.
 		menu->addAction(
-			u"Dịch và gửi..."_q,
+			tr::lng_translate_outgoing_menu(tr::now),
 			[=] { action({ .type = ActionType::TranslateOutgoing }, details); },
-			&icons.menuSchedule); // Fallback icon since menuTranslate may not be available in ComposeIcons
+			&icons.menuSchedule);
 	}
 	if (sending && type == Type::ScheduledToUser) {
 		menu->addAction(
@@ -841,7 +898,8 @@ void SetupMenuAndShortcuts(
 		Fn<Details()> details,
 		Fn<void(Action, Details)> action,
 		const style::PopupMenu *stOverride,
-		const style::ComposeIcons *iconsOverride) {
+		const style::ComposeIcons *iconsOverride,
+		Fn<bool()> translateOutgoing) {
 	const auto menu = std::make_shared<base::unique_qptr<Ui::PopupMenu>>();
 	const auto showMenu = [=] {
 		*menu = base::make_unique_q<Ui::PopupMenu>(
@@ -852,7 +910,9 @@ void SetupMenuAndShortcuts(
 			maybeShow,
 			details(),
 			action,
-			iconsOverride);
+			iconsOverride,
+			std::nullopt,
+			translateOutgoing && translateOutgoing());
 		if (result != FillMenuResult::Prepared) {
 			return false;
 		}

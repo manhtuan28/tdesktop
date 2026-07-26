@@ -3317,6 +3317,66 @@ void ComposeControls::setupSendMenu(
 		not_null<Ui::RpWidget*> button,
 		Fn<void(Api::SendOptions)> send) {
 	using namespace SendMenu;
+
+	// Only the composer send button owns the text field, other buttons
+	// using this menu (the one inside the AI compose box) send a text of
+	// their own, so translating the field there would be wrong.
+	const auto composer = (button.get() == _send.get());
+
+	// No member for this, so the in-flight request is tracked per button.
+	const auto requestId = std::make_shared<mtpRequestId>(0);
+	const auto translateAvailable = [=] {
+		return composer
+			&& _history
+			&& !*requestId
+			&& !isEditingMessage()
+			&& !shownRichMessage()
+			&& _field->isVisible()
+			&& HasSendText(_field);
+	};
+	const auto translateAndSend = [=](Api::SendOptions options) {
+		if (!translateAvailable()) {
+			return;
+		}
+		const auto textWithTags = _field->getTextWithAppliedMarkdown();
+		const auto weakHistory = base::make_weak(_history);
+		*requestId = SendMenu::RequestOutgoingTranslation(
+			&session(),
+			textWithTags,
+			crl::guard(_wrap.get(), [=](TextWithTags translated) {
+				*requestId = 0;
+				if (!_history
+					|| (_history != weakHistory.get())
+					|| isEditingMessage()
+					|| shownRichMessage()) {
+					// The thread was switched or an edit was started, the
+					// translation would be sent to the wrong place now.
+					return;
+				} else if (_field->getTextWithAppliedMarkdown()
+						!= textWithTags) {
+					// The composer no longer holds the translated text.
+					return;
+				} else if (translated.text.isEmpty()) {
+					// Never wipe what the user typed.
+					_show->showToast(
+						tr::lng_translate_outgoing_failed(tr::now));
+					return;
+				}
+				setFieldText(
+					translated,
+					TextUpdateEvent::SaveDraft,
+					Ui::InputField::HistoryAction::NewEntry);
+				send(options);
+			}),
+			crl::guard(_wrap.get(), [=](QString error) {
+				*requestId = 0;
+				_show->showToast(error);
+			}));
+		// While the request is in flight the menu item is hidden by
+		// translateAvailable(), so a second one can't be started.
+		_show->showToast(tr::lng_translate_outgoing_progress(tr::now));
+	};
+
 	const auto sendAction = [=](Action action, Details details) {
 		if (action.type == ActionType::ChangePrice) {
 			_chosenStarsCount = details.price.value_or(0);
@@ -3326,6 +3386,8 @@ void ComposeControls::setupSendMenu(
 			|| action.type == ActionType::SpoilerOn
 			|| action.type == ActionType::SpoilerOff) {
 			_header->mediaEditManagerApply(action);
+		} else if (action.type == ActionType::TranslateOutgoing) {
+			translateAndSend(action.options);
 		} else {
 			SendMenu::DefaultCallback(_show, send)(action, details);
 		}
@@ -3336,7 +3398,8 @@ void ComposeControls::setupSendMenu(
 		[=] { return sendButtonMenuDetails(); },
 		sendAction,
 		&_st.tabbed.menu,
-		&_st.tabbed.icons);
+		&_st.tabbed.icons,
+		composer ? Fn<bool()>(translateAvailable) : nullptr);
 }
 
 void ComposeControls::initSendAsButton(

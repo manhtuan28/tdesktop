@@ -89,6 +89,7 @@ class CommunityRequestableList;
 enum class HashOrCashtag : uchar;
 struct RightButton;
 enum class ChatTypeFilter : uchar;
+enum class SearchMediaFilter : uchar;
 
 struct ChosenRow {
 	Key key;
@@ -208,6 +209,8 @@ public:
 		-> rpl::producer<ChatSearchTab>;
 	[[nodiscard]] auto changeSearchFilterRequests() const
 		-> rpl::producer<ChatTypeFilter>;
+	[[nodiscard]] auto changeSearchMediaFilterRequests() const
+		-> rpl::producer<SearchMediaFilter>;
 	[[nodiscard]] rpl::producer<bool> changeSearchFromArchiveRequests() const;
 	[[nodiscard]] rpl::producer<> resetSearchRestrictionsRequests() const;
 	[[nodiscard]] rpl::producer<> cancelSearchRequests() const;
@@ -744,6 +747,7 @@ private:
 	std::unique_ptr<ChatSearchIn> _searchIn;
 	rpl::event_stream<ChatSearchTab> _changeSearchTabRequests;
 	rpl::event_stream<ChatTypeFilter> _changeSearchFilterRequests;
+	rpl::event_stream<SearchMediaFilter> _changeSearchMediaFilterRequests;
 	rpl::event_stream<bool> _changeSearchFromArchiveRequests;
 	rpl::event_stream<> _resetSearchRestrictionsRequests;
 	rpl::event_stream<> _cancelSearchRequests;

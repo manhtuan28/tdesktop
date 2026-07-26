@@ -223,7 +223,16 @@ void Step::createSession(
 	const auto defaultId = Lang::DefaultLanguageId();
 	const auto suggested = Lang::CurrentCloudManager().suggestedLanguage();
 	if (currentId.isEmpty() && !suggested.isEmpty() && suggested != defaultId) {
-		Lang::GetInstance().switchToId(Lang::DefaultLanguage());
+		const auto language = Lang::DefaultLanguage();
+		Lang::GetInstance().switchToId(language);
+		// switchToId() drops the loaded strings back to the built-in ones
+		// and creates a fresh base instance, so both the current and the
+		// base pack must be requested instead of waiting for a config.
+		auto &manager = Lang::CurrentCloudManager();
+		manager.requestLangPackDifference(defaultId);
+		if (!language.baseId.isEmpty() && language.baseId != defaultId) {
+			manager.requestLangPackDifference(language.baseId);
+		}
 		Local::writeLangPack();
 	}
 

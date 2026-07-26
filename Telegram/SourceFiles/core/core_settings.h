@@ -917,6 +917,16 @@ public:
 	void setRememberedDeleteMessageOnlyForYou(bool value);
 	[[nodiscard]] bool rememberedDeleteMessageOnlyForYou() const;
 
+	[[nodiscard]] bool ghostModeEnabled() const {
+		return _ghostModeEnabled.current();
+	}
+	[[nodiscard]] rpl::producer<bool> ghostModeEnabledValue() const {
+		return _ghostModeEnabled.value();
+	}
+	void setGhostModeEnabled(bool value) {
+		_ghostModeEnabled = value;
+	}
+
 	[[nodiscard]] const WindowPosition &mediaViewPosition() const {
 		return _mediaViewPosition;
 	}
@@ -1194,6 +1204,7 @@ private:
 	rpl::variable<std::vector<LanguageId>> _skipTranslationLanguages;
 	rpl::event_stream<> _skipTranslationLanguagesChanges;
 	bool _rememberedDeleteMessageOnlyForYou = false;
+	rpl::variable<bool> _ghostModeEnabled = true;
 	WindowPosition _mediaViewPosition = { .maximized = 2 };
 	rpl::variable<bool> _ignoreBatterySaving = false;
 	std::optional<uint64> _macRoundIconDigest;

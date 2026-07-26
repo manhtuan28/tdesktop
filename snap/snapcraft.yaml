@@ -1,4 +1,4 @@
-name: telegram-desktop
+name: tuangram
 adopt-info: telegram
 icon: Telegram/Resources/art/icon512@2x.png
 
@@ -8,11 +8,13 @@ confinement: strict
 compression: lzo
 
 apps:
-  telegram-desktop:
-    command: usr/bin/telegram-desktop
+  tuangram:
+    command: usr/bin/tuangram
+    # common-id / desktop keep the org.telegram.desktop id: it is hardcoded in
+    # specific_linux.cpp and in the metainfo file installed by CMake.
     common-id: org.telegram.desktop
     desktop: usr/share/applications/org.telegram.desktop.desktop
-    autostart: telegram-desktop_telegram-desktop.desktop
+    autostart: tuangram_tuangram.desktop
     extensions: [gnome]
     plugs:
       - audio-playback
@@ -51,8 +53,13 @@ parts:
     cmake-parameters:
       - -DCMAKE_BUILD_TYPE=Release
       - -DCMAKE_INSTALL_PREFIX=/usr
+      # The snap.yml workflow rewrites these two lines in place with the
+      # repository secrets before running snapcraft.
       - -DTDESKTOP_API_ID=611335
       - -DTDESKTOP_API_HASH=d524b414d21f4d37f08684c1df41ac9c
+      # This fork has no update feed; the MTP updater still points at the
+      # official Telegram one, so keep it out of the build entirely.
+      - -DDESKTOP_APP_DISABLE_AUTOUPDATE=ON
     override-pull: |
       craftctl default
 
@@ -70,7 +77,7 @@ parts:
     override-build: |
       craftctl default
       "$CRAFT_PART_SRC/Telegram/build/minidebug.sh" "$CRAFT_PART_INSTALL/usr/bin/Telegram"
-      mv "$CRAFT_PART_INSTALL"/usr/bin/{Telegram,telegram-desktop}
+      mv "$CRAFT_PART_INSTALL"/usr/bin/{Telegram,tuangram}
 
       APP_ID=org.telegram.desktop
       sed -i "s/^Icon=$APP_ID$/Icon=snap.$CRAFT_PROJECT_NAME./g" "$CRAFT_PART_INSTALL/usr/share/applications/$APP_ID.desktop"

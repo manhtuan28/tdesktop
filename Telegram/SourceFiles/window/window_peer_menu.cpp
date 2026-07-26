@@ -446,6 +446,24 @@ void TogglePinnedThread(
 	}
 
 	owner->setChatPinned(entry, FilterId(), isPinned);
+
+	// The local pin limits are raised above what the server accepts, so a
+	// rejected request must roll the optimistic local state back, otherwise
+	// the chat looks pinned until the next launch.
+	const auto weakEntry = base::make_weak(entry);
+	const auto weakController = base::make_weak(controller);
+	const auto failed = [=](const MTP::Error &error) {
+		if (const auto strongEntry = weakEntry.get()) {
+			if (strongEntry->isPinnedDialog(FilterId()) == isPinned) {
+				const auto data = &strongEntry->owner();
+				data->setChatPinned(strongEntry, FilterId(), !isPinned);
+				data->notifyPinnedDialogsOrderUpdated();
+			}
+		}
+		if (const auto strongController = weakController.get()) {
+			strongController->showToast(error.type());
+		}
+	};
 	if (const auto history = entry->asHistory()) {
 		const auto flags = isPinned
 			? MTPmessages_ToggleDialogPin::Flag::f_pinned
@@ -462,7 +480,7 @@ void TogglePinnedThread(
 			if (onToggled) {
 				onToggled();
 			}
-		}).send();
+		}).fail(failed).send();
 		if (isPinned) {
 			controller->content()->dialogsToUp();
 		}
@@ -477,7 +495,7 @@ void TogglePinnedThread(
 			if (onToggled) {
 				onToggled();
 			}
-		}).send();
+		}).fail(failed).send();
 	} else if (const auto sublist = entry->asSublist()) {
 		const auto flags = isPinned
 			? MTPmessages_ToggleSavedDialogPin::Flag::f_pinned
@@ -490,7 +508,7 @@ void TogglePinnedThread(
 			if (onToggled) {
 				onToggled();
 			}
-		}).send();
+		}).fail(failed).send();
 		//if (isPinned) {
 		//	controller->content()->dialogsToUp();
 		//}
@@ -1566,7 +1584,11 @@ void Filler::addToggleNoForwards() {
 			}
 		}).send();
 	};
-	const auto disabledNow = !user->allowsForwarding();
+	// allowsForwarding() is always true in this build (content unlocker), so
+	// this control reads the real server flags instead.
+	const auto userFlags = user->flags();
+	const auto disabledNow = (userFlags & UserDataFlag::NoForwardsMyEnabled)
+		|| (userFlags & UserDataFlag::NoForwardsPeerEnabled);
 	_addAction(disabledNow
 		? tr::lng_enable_sharing(tr::now)
 		: tr::lng_disable_sharing(tr::now), [=] {

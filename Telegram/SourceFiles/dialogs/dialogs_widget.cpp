@@ -35,10 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/chat_filters_tabs_strip.h"
 #include "ui/widgets/elastic_scroll.h"
-#include "ui/widgets/menu/menu_add_action_callback_factory.h"
-#include "ui/unread_badge.h"
-#include "ui/widgets/discrete_sliders.h"
-#include "boxes/filters/edit_filter_box.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/fade_wrap.h"
 #include "ui/wrap/slide_wrap.h"
 #include "ui/wrap/vertical_layout.h"
@@ -102,9 +99,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_chat_helpers.h"
 #include "styles/style_info.h"
 #include "styles/style_window.h"
-#include "styles/style_media_player.h"
-#include "styles/style_menu_icons.h"
-#include "styles/style_settings.h"
 #include "base/qt/qt_common_adapters.h"
 
 #include <QtCore/QMimeData>
@@ -435,26 +429,6 @@ Widget::Widget(
 , _searchTimer([=] { search(); })
 , _peerSearch(&controller->session(), Api::PeerSearch::Type::WithSponsored)
 , _singleMessageSearch(&controller->session()) {
-	_globalSearchTabs = std::make_unique<Ui::SettingsSlider>(this);
-	_globalSearchTabs->addSection(u"Tất cả"_q);
-	_globalSearchTabs->addSection(u"Chat"_q);
-	_globalSearchTabs->addSection(u"Kênh"_q);
-	_globalSearchTabs->addSection(u"Ứng dụng"_q);
-	_globalSearchTabs->addSection(u"Bài viết"_q);
-	_globalSearchTabs->addSection(u"Media"_q);
-	_globalSearchTabs->addSection(u"Link"_q);
-	_globalSearchTabs->addSection(u"File"_q);
-	_globalSearchTabs->addSection(u"Nhạc"_q);
-	_globalSearchTabs->addSection(u"Thoại"_q);
-	_globalSearchTabs->hide();
-	_globalSearchTabs->sectionActivated(
-	) | rpl::on_next([=](int index) {
-		if (_searchGlobalTab != static_cast<GlobalSearchTab>(index)) {
-			_searchGlobalTab = static_cast<GlobalSearchTab>(index);
-			search();
-		}
-	}, lifetime());
-
 	const auto makeChildListShown = [](PeerId peerId, float64 shown) {
 		return InnerWidget::ChildListShown{ peerId, shown };
 	};
@@ -566,6 +540,15 @@ Widget::Widget(
 		copy.filter = filter;
 		applySearchState(copy);
 	}, lifetime());
+	_inner->changeSearchMediaFilterRequests(
+	) | rpl::filter([=](SearchMediaFilter filter) {
+		return (_searchState.mediaFilter != filter)
+			&& (_searchState.tab == ChatSearchTab::MyMessages);
+	}) | rpl::on_next([=](SearchMediaFilter filter) {
+		auto copy = _searchState;
+		copy.mediaFilter = filter;
+		applySearchState(copy);
+	}, lifetime());
 	_inner->changeSearchFromArchiveRequests(
 	) | rpl::filter([=](bool fromArchive) {
 		return (_searchState.fromArchive != fromArchive)
@@ -579,10 +562,12 @@ Widget::Widget(
 	) | rpl::filter([=] {
 		return (_searchState.tab == ChatSearchTab::MyMessages)
 			&& ((_searchState.filter != ChatTypeFilter::All)
+				|| (_searchState.mediaFilter != SearchMediaFilter::All)
 				|| !_searchState.fromArchive);
 	}) | rpl::on_next([=] {
 		auto copy = _searchState;
 		copy.filter = ChatTypeFilter::All;
+		copy.mediaFilter = SearchMediaFilter::All;
 		copy.fromArchive = true;
 		applySearchState(copy);
 	}, lifetime());
@@ -3038,6 +3023,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 		? _openedCommunity->channel().get()
 		: nullptr;
 	const auto filter = _searchState.filter;
+	const auto mediaFilter = _searchState.mediaFilter;
 	const auto fromArchive = _searchState.fromArchive;
 	const auto fromStartType = SearchRequestType{
 		.start = true,
@@ -3083,6 +3069,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 			_searchQueryTab = tab;
 			_searchQueryCommunity = community;
 			_searchQueryFilter = filter;
+			_searchQueryMediaFilter = mediaFilter;
 			_searchQueryFromArchive = fromArchive;
 			process->nextRate = 0;
 			process->full = false;
@@ -3097,6 +3084,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 		|| _searchQueryTab != tab
 		|| _searchQueryCommunity != community
 		|| _searchQueryFilter != filter
+		|| _searchQueryMediaFilter != mediaFilter
 		|| _searchQueryFromArchive != fromArchive) {
 		const auto process = currentSearchProcess();
 		_searchQuery = query;
@@ -3105,6 +3093,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 		_searchQueryTab = tab;
 		_searchQueryCommunity = community;
 		_searchQueryFilter = filter;
+		_searchQueryMediaFilter = mediaFilter;
 		_searchQueryFromArchive = fromArchive;
 		process->nextRate = 0;
 		process->full = false;
@@ -3207,15 +3196,11 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
 }
 
 bool Widget::peerSearchRequired() const {
-	if (_searchGlobalTab == GlobalSearchTab::Messages
-		|| _searchGlobalTab == GlobalSearchTab::Media
-		|| _searchGlobalTab == GlobalSearchTab::Links
-		|| _searchGlobalTab == GlobalSearchTab::Files
-		|| _searchGlobalTab == GlobalSearchTab::Music
-		|| _searchGlobalTab == GlobalSearchTab::Voice) {
-		return false;
-	}
-	return _searchState.filterChatsList() && !_openedForum;
+	// When searching for a specific media type the chat list results are
+	// just noise, the user is looking for messages, not for chats.
+	return (_searchState.mediaFilter == SearchMediaFilter::All)
+		&& _searchState.filterChatsList()
+		&& !_openedForum;
 }
 
 bool Widget::searchForTopicsRequired(const QString &query) const {
@@ -3505,21 +3490,22 @@ void Widget::requestMessages(bool fromStart) {
 		? Data::Folder::kId
 		: 0;
 
-	if (_searchGlobalTab == GlobalSearchTab::Chats
-		|| _searchGlobalTab == GlobalSearchTab::Channels
-		|| _searchGlobalTab == GlobalSearchTab::Apps) {
-		return;
-	}
-
-	const auto messagesFilter = [&] {
-		switch (_searchGlobalTab) {
-		case GlobalSearchTab::Media: return MTP_inputMessagesFilterPhotoVideo();
-		case GlobalSearchTab::Links: return MTP_inputMessagesFilterUrl();
-		case GlobalSearchTab::Files: return MTP_inputMessagesFilterDocument();
-		case GlobalSearchTab::Music: return MTP_inputMessagesFilterMusic();
-		case GlobalSearchTab::Voice: return MTP_inputMessagesFilterRoundVoice();
-		default: return MTP_inputMessagesFilterEmpty();
+	const auto messagesFilter = [&]() -> MTPMessagesFilter {
+		switch (_searchQueryMediaFilter) {
+		case SearchMediaFilter::Media:
+			return MTP_inputMessagesFilterPhotoVideo();
+		case SearchMediaFilter::Links:
+			return MTP_inputMessagesFilterUrl();
+		case SearchMediaFilter::Files:
+			return MTP_inputMessagesFilterDocument();
+		case SearchMediaFilter::Music:
+			return MTP_inputMessagesFilterMusic();
+		case SearchMediaFilter::Voice:
+			return MTP_inputMessagesFilterRoundVoice();
+		case SearchMediaFilter::All:
+			return MTP_inputMessagesFilterEmpty();
 		}
+		Unexpected("Media filter in Widget::requestMessages.");
 	}();
 
 	_searchProcess.requestId = session().api().request(
@@ -3690,28 +3676,6 @@ void Widget::searchReceived(
 }
 
 void Widget::peerSearchReceived(Api::PeerSearchResult result) {
-	if (_searchGlobalTab == GlobalSearchTab::Chats
-		|| _searchGlobalTab == GlobalSearchTab::Channels
-		|| _searchGlobalTab == GlobalSearchTab::Apps) {
-		auto filter = [&](not_null<PeerData*> peer) {
-			if (_searchGlobalTab == GlobalSearchTab::Chats) {
-				return (peer->isUser() && !peer->asUser()->isBot()) || peer->isChat() || peer->isMegagroup();
-			} else if (_searchGlobalTab == GlobalSearchTab::Channels) {
-				return peer->isBroadcast();
-			} else if (_searchGlobalTab == GlobalSearchTab::Apps) {
-				return peer->isUser() && peer->asUser()->isBot();
-			}
-			return true;
-		};
-		result.my.erase(
-			std::remove_if(result.my.begin(), result.my.end(), [&](not_null<PeerData*> peer) {
-				return !filter(peer);
-			}), result.my.end());
-		result.peers.erase(
-			std::remove_if(result.peers.begin(), result.peers.end(), [&](not_null<PeerData*> peer) {
-				return !filter(peer);
-			}), result.peers.end());
-	}
 	_inner->peerSearchReceived(std::move(result));
 	listScrollUpdated();
 	update();
@@ -4135,9 +4099,12 @@ bool Widget::applySearchState(SearchState state) {
 		: false;
 	if (queryEmptyChanged || tabChanged) {
 		state.filter = ChatTypeFilter::All;
+		state.mediaFilter = SearchMediaFilter::All;
 		state.fromArchive = true;
 	}
 	const auto filterChanged = (_searchState.filter != state.filter);
+	const auto mediaFilterChanged = (_searchState.mediaFilter
+		!= state.mediaFilter);
 	const auto fromArchiveChanged = (_searchState.fromArchive
 		!= state.fromArchive);
 
@@ -4228,6 +4195,7 @@ bool Widget::applySearchState(SearchState state) {
 		|| communityChanged
 		|| fromPeerChanged
 		|| filterChanged
+		|| mediaFilterChanged
 		|| fromArchiveChanged
 		|| tagsChanged
 		|| tabChanged) {
@@ -4570,24 +4538,6 @@ void Widget::updateControlsGeometry() {
 			st::lineWidth);
 	}
 
-	const auto showGlobalSearchTabs = !_openedForum
-		&& !_searchState.community
-		&& !searchInPeer()
-		&& (!_searchState.query.isEmpty() || searchHasFocus());
-
-	const auto scrollWidth = _childList ? _narrowWidth : barw;
-	int globalSearchTabsHeight = 0;
-	if (_globalSearchTabs) {
-		if (showGlobalSearchTabs) {
-			_globalSearchTabs->show();
-			_globalSearchTabs->resizeToWidth(scrollWidth);
-			globalSearchTabsHeight = _globalSearchTabs->height();
-			_globalSearchTabs->moveToLeft(0, expandedStoriesTop, scrollWidth);
-		} else {
-			_globalSearchTabs->hide();
-		}
-	}
-
 	updateLockUnlockPosition();
 
 	auto bottomSkip = 0;
@@ -4619,6 +4569,7 @@ void Widget::updateControlsGeometry() {
 		? wasScrollTop
 		: (wasScrollTop + _topDelta);
 
+	const auto scrollWidth = _childList ? _narrowWidth : barw;
 	if (_moreChatsBar) {
 		_moreChatsBar->resizeToWidth(barw);
 	}
@@ -4636,7 +4587,6 @@ void Widget::updateControlsGeometry() {
 	}
 	_updateScrollGeometryCached = [=] {
 		const auto frozenBarTop = expandedStoriesTop
-			+ globalSearchTabsHeight
 			+ ((!_stories || _stories->isHidden()) ? 0 : _aboveScrollAdded);
 		if (_frozenAccountBar) {
 			_frozenAccountBar->move(0, frozenBarTop);

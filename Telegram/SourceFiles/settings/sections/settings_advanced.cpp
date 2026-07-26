@@ -1210,6 +1210,40 @@ void BuildExportSection(SectionBuilder &builder) {
 	});
 }
 
+void BuildGhostModeSection(SectionBuilder &builder) {
+	const auto settings = &Core::App().settings();
+
+	builder.addSkip();
+	builder.addDivider();
+	builder.addSkip();
+	builder.addSubsectionTitle({
+		.id = u"advanced/ghost_mode"_q,
+		.title = tr::lng_settings_ghost_mode_title(),
+		.keywords = { u"ghost"_q, u"privacy"_q, u"read"_q, u"typing"_q },
+	});
+
+	const auto toggle = builder.addButton({
+		.id = u"advanced/ghost_mode_enable"_q,
+		.title = tr::lng_settings_ghost_mode(),
+		.st = &st::settingsButtonNoIcon,
+		.toggled = settings->ghostModeEnabledValue(),
+		.keywords = { u"ghost"_q, u"read"_q, u"typing"_q, u"receipts"_q },
+	});
+
+	if (toggle) {
+		toggle->toggledChanges(
+		) | rpl::filter([=](bool toggled) {
+			return (toggled != settings->ghostModeEnabled());
+		}) | rpl::on_next([=](bool toggled) {
+			settings->setGhostModeEnabled(toggled);
+			Core::App().saveSettingsDelayed();
+		}, toggle->lifetime());
+	}
+
+	builder.addSkip();
+	builder.addDividerText(tr::lng_settings_ghost_mode_about());
+}
+
 void BuildScreenReaderSection(SectionBuilder &builder) {
 	const auto detected = base::ScreenReaderState::Instance()->active();
 	const auto disabled = Ui::ScreenReaderModeDisabled();
@@ -1287,6 +1321,7 @@ const auto kMeta = BuildHelper({
 		BuildUpdateSection(builder, false);
 	}
 	BuildExportSection(builder);
+	BuildGhostModeSection(builder);
 });
 
 const SectionBuildMethod kAdvancedSection = kMeta.build;

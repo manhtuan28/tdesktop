@@ -13,7 +13,10 @@ done < "$FullScriptPath/version"
 
 BinaryPath="${1:-}"
 OutputDir="${2:-$FullExecPath}"
-PackageName="telegram-desktop"
+PackageName="tuangram"
+# The runtime desktop-file name is hardcoded in specific_linux.cpp, so the entry
+# and the icons must keep the org.telegram.desktop id even though we rebranded.
+DesktopId="org.telegram.desktop"
 Architecture="amd64"
 Version="$AppVersionStr"
 DebFile="${PackageName}_${Version}_${Architecture}.deb"
@@ -27,7 +30,7 @@ if [ -z "$BinaryPath" ]; then
     echo ""
     echo "Usage: ./build_deb.sh /path/to/built/Telegram [output_dir]"
     echo ""
-    echo "  /path/to/built/Telegram  - Path to the compiled Telegram binary"
+    echo "  /path/to/built/Telegram  - Path to the compiled TuanGram binary"
     echo "  output_dir               - Where to place the .deb file (default: current directory)"
     echo ""
     echo "If no path is given, the script looks for out/Release/Telegram or out/Debug/Telegram"
@@ -67,40 +70,43 @@ Priority: optional
 Architecture: $Architecture
 Installed-Size: $InstalledSize
 Depends: libqt6widgets6 (>= 6.2) | libqt5widgets5 (>= 5.15), libc6 (>= 2.31), libstdc++6 (>= 11), libx11-6, libxcb1, zlib1g
+Conflicts: telegram-desktop
+Replaces: telegram-desktop
 Maintainer: manhtuan28 <manhtuan28@github.com>
 Homepage: https://github.com/manhtuan28/tdesktop
-Description: Telegram Desktop - Custom Build
+Description: TuanGram - Custom Telegram Desktop Build
  Fast and secure desktop messaging app, fully synced with
  your mobile phone. Custom build with premium features unlocked
  and increased limits.
 EOF
 
-install -m 755 "$BinaryPath" "$PkgRoot/usr/bin/telegram-desktop"
+install -m 755 "$BinaryPath" "$PkgRoot/usr/bin/tuangram"
 
-cat > "$PkgRoot/usr/share/applications/telegram-desktop.desktop" << 'EOF'
+cat > "$PkgRoot/usr/share/applications/$DesktopId.desktop" << EOF
 [Desktop Entry]
 Version=1.0
-Name=Telegram Desktop
+Name=TuanGram
 Comment=Fast and secure desktop messaging
-Exec=telegram-desktop -- %u
-Icon=telegram
+TryExec=tuangram
+Exec=tuangram -- %u
+Icon=$DesktopId
 Terminal=false
 StartupWMClass=TelegramDesktop
 Type=Application
 Categories=Chat;Network;InstantMessaging;Qt;
 MimeType=x-scheme-handler/tg;x-scheme-handler/tonsite;
-Keywords=tg;chat;im;messaging;messenger;sms;
+Keywords=tg;chat;im;messaging;messenger;sms;tuangram;
 Actions=quit;
 
 [Desktop Action quit]
-Name=Quit Telegram
-Exec=telegram-desktop -quit
-Icon=telegram
+Name=Quit TuanGram
+Exec=tuangram -quit
+Icon=$DesktopId
 EOF
 
 IconSource="$FullScriptPath/../Resources/art/icon256.png"
 if [ -f "$IconSource" ]; then
-  install -m 644 "$IconSource" "$PkgRoot/usr/share/icons/hicolor/256x256/apps/telegram.png"
+  install -m 644 "$IconSource" "$PkgRoot/usr/share/icons/hicolor/256x256/apps/$DesktopId.png"
 else
   echo "Warning: Icon not found at $IconSource, .deb will have no icon"
 fi
@@ -108,14 +114,14 @@ fi
 Icon512="$FullScriptPath/../Resources/art/icon512.png"
 if [ -f "$Icon512" ]; then
   mkdir -p "$PkgRoot/usr/share/icons/hicolor/512x512/apps"
-  install -m 644 "$Icon512" "$PkgRoot/usr/share/icons/hicolor/512x512/apps/telegram.png"
+  install -m 644 "$Icon512" "$PkgRoot/usr/share/icons/hicolor/512x512/apps/$DesktopId.png"
 fi
 
-cat > "$PkgRoot/usr/share/metainfo/telegram-desktop.appdata.xml" << EOF
+cat > "$PkgRoot/usr/share/metainfo/$DesktopId.metainfo.xml" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>telegram-desktop</id>
-  <name>Telegram Desktop</name>
+  <id>$DesktopId</id>
+  <name>TuanGram</name>
   <summary>Fast and secure desktop messaging</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>GPL-3.0</project_license>
@@ -123,7 +129,7 @@ cat > "$PkgRoot/usr/share/metainfo/telegram-desktop.appdata.xml" << EOF
   <releases>
     <release version="$Version" />
   </releases>
-  <launchable type="desktop-id">telegram-desktop.desktop</launchable>
+  <launchable type="desktop-id">$DesktopId.desktop</launchable>
 </component>
 EOF
 

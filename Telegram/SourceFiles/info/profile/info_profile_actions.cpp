@@ -290,6 +290,17 @@ void SetupAboutPeerIdDrag(
 	}, label->lifetime());
 }
 
+// Bot API style ids: bare for users, "-" for basic groups,
+// "-100" for channels and supergroups.
+[[nodiscard]] QString PeerIdDisplayString(not_null<PeerData*> peer) {
+	const auto bare = QString::number(peer->id.value & PeerId::kChatTypeMask);
+	return peer->isChannel()
+		? (u"-100"_q + bare)
+		: peer->isChat()
+		? (u"-"_q + bare)
+		: bare;
+}
+
 [[nodiscard]] bool AreNonTrivialHours(const Data::WorkingHours &hours) {
 	if (!hours) {
 		return false;
@@ -1643,21 +1654,23 @@ Section DetailsFiller::makeInfo() {
 				}
 			});
 	};
-	
-	const auto peerIdString = QString::number(_peer->id.value & PeerId::kChatTypeMask);
-	const auto dcIdText = (_peer->isUser() && _peer->asUser()->isBot()) ? u" (Bot)"_q : u""_q;
-	
+
+	const auto peerIdString = PeerIdDisplayString(_peer);
+	const auto botSuffix = _peer->isBot()
+		? (u" ("_q + tr::lng_status_bot(tr::now) + u")"_q)
+		: QString();
+
 	const auto idLabel = addInfoOneLine(
-		TextWithEntities{ u"ID"_q },
-		rpl::single(TextWithEntities{ peerIdString + dcIdText }),
-		tr::lng_profile_copy_phone(tr::now),
+		tr::lng_profile_id_label(),
+		rpl::single(TextWithEntities{ peerIdString + botSuffix }),
+		tr::lng_profile_copy_id(tr::now),
 		st::infoProfileLabeledPadding,
 		st::popupMenuWithIcons).text;
-		
+
 	const auto idHook = [=](Ui::FlatLabel::ContextMenuRequest request) {
 		if (request.selection.empty()) {
 			request.menu->addAction(
-				tr::lng_context_copy_text(tr::now),
+				tr::lng_profile_copy_id(tr::now),
 				[=] { TextUtilities::SetClipboardText({ peerIdString }); },
 				&st::menuIconCopy);
 		} else {

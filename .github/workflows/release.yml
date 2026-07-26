@@ -2,44 +2,86 @@ name: Build & Release
 
 on:
   push:
+    branches:
+      - dev
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
+  # Cheap gate: runs in seconds and blocks the four platform builds, so a repo
+  # without credentials fails immediately instead of after four full builds.
+  check-credentials:
+    name: Check API credentials
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check API credentials.
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          if [ -z "$TDESKTOP_API_ID" ] || [ -z "$TDESKTOP_API_HASH" ]; then
+            echo "::error::Repository secrets TDESKTOP_API_ID and TDESKTOP_API_HASH are not set."
+            echo "Without them the builds fall back to the shared test-only api_id 17349,"
+            echo "which the Telegram API rejects on login. Register your own credentials at"
+            echo "https://my.telegram.org and add them as repository secrets."
+            exit 1
+          fi
+
   build-linux:
+    needs: check-credentials
     uses: ./.github/workflows/linux.yml
+    secrets: inherit
   build-windows:
+    needs: check-credentials
     uses: ./.github/workflows/win.yml
+    secrets: inherit
   build-mac:
+    needs: check-credentials
     uses: ./.github/workflows/mac_packaged.yml
+    secrets: inherit
   build-snap:
+    needs: check-credentials
     uses: ./.github/workflows/snap.yml
+    secrets: inherit
 
   release:
     name: Create GitHub Release
     needs: [build-linux, build-windows, build-mac, build-snap]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - name: Clone.
+        uses: actions/checkout@v7
+
       - name: Download release artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
-          pattern: |
-            Windows-*
-            Linux-*
-            macOS*
-            telegram-desktop_*.snap
+          merge-multiple: false
           path: artifacts/
-      
+
       - name: Prepare Release Files
         run: |
           mkdir -p artifacts
           mkdir -p release
-          find artifacts -type f -exec mv {} release/ \;
+          # Collect only finished packages. Never flatten directories (a macOS
+          # .app bundle would explode into hundreds of colliding files).
+          find artifacts -type f \( \
+            -iname '*.zip' -o \
+            -iname '*.deb' -o \
+            -iname '*.snap' -o \
+            -iname '*.exe' -o \
+            -iname '*.dmg' -o \
+            -iname '*.tar.xz' \
+          \) -exec mv -n {} release/ \;
           FILE_COUNT=$(find release -type f | wc -l)
           echo "Found $FILE_COUNT release file(s)"
+          ls -la release/ || true
           if [ "$FILE_COUNT" -eq 0 ]; then
-            echo "Warning: No artifacts were found. Upstream builds may have failed."
+            echo "::error::No release artifacts were found. Upstream builds failed."
+            exit 1
           fi
-          ls -la release/
 
       - name: Get version from tag.
         id: version
@@ -58,21 +100,25 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: "Telegram Desktop Custom v${{ steps.version.outputs.name }}"
+          name: "TuanGram v${{ steps.version.outputs.name }}"
           body: |
-            ## Telegram Desktop — Custom Build
+            ## TuanGram — Telegram Desktop, modded
 
             ### Changes from official
             - ✅ All premium features unlocked (client-side)
-            - ✅ All limits raised to 99999 (pins, accounts, folders, stickers, etc.)
+            - ✅ Raised limits (pins, accounts, folders, stickers, etc.)
             - ✅ Ads/sponsored messages blocked
             - ✅ Paid messages (Stars fee) bypassed
-            - ✅ Update URLs point to this repository
+            - ✅ Ghost mode, anti-recall, anti-TTL, content unlocker
+            - ✅ Vietnamese by default, outgoing translation
+            - ⛔ Auto-update is disabled — this fork has no update feed,
+              download a new release manually to upgrade.
 
             ### Downloads
-            - **Windows**: `.zip` portable binary
-            - **macOS**: `.dmg` packaged application
-            - **Linux**: `.tar.xz` portable binary and `.deb` package
+            - **Windows**: `TuanGram-<version>-x64-portable.zip` (portable, unzip and run `Telegram.exe`)
+            - **macOS**: `TuanGram-macOS.zip` (unzip, move `Telegram.app` to Applications, then run
+              `xattr -dr com.apple.quarantine /Applications/Telegram.app` — the build is ad-hoc signed, not notarized)
+            - **Linux**: `tuangram-<version>-linux-x64.tar.xz` (portable) and `tuangram_<version>_amd64.deb`
             - **Snap**: `.snap` package
 
             > **Note**: Server-side restrictions still apply. Features that require server validation may not work.

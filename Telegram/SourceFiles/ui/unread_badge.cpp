@@ -248,9 +248,12 @@ int PeerBadge::drawGetWidth(Painter &p, Descriptor &&descriptor) {
 	const auto emojiStatus = premiumMark
 		&& peer->emojiStatusId()
 		&& (peer->isPremium() || peer->isChannel());
+	// The premium star is painted only for the logged-in account, other
+	// peers keep their real premium state everywhere else in the app.
 	const auto premiumStar = premiumMark
 		&& !emojiStatus
-		&& peer->isPremium();
+		&& peer->isPremium()
+		&& peer->isSelf();
 
 	const auto paintVerify = verifyCheck
 		&& (descriptor.prioritizeVerification

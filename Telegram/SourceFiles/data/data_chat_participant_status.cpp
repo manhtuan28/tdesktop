@@ -97,6 +97,14 @@ namespace {
 	});
 }
 
+// Session::premium() is unlocked client-side, so guards that decide whether
+// an outgoing request may be sent at all must read the account's real tier,
+// otherwise the composer is enabled for chats the server always rejects.
+// UserData::isPremium() is also unlocked for self, so read the raw flag here.
+[[nodiscard]] bool AccountIsPremium(not_null<Main::Session*> session) {
+	return (session->user()->flags() & UserDataFlag::Premium) != 0;
+}
+
 } // namespace
 
 ChatAdminRightsInfo::ChatAdminRightsInfo(const MTPChatAdminRights &rights)
@@ -239,7 +247,7 @@ bool CanSendAnyOf(
 			|| user->isVerifyCodes()) {
 			return false;
 		} else if (user->requiresPremiumToWrite()
-			&& !user->session().premium()) {
+			&& !AccountIsPremium(&user->session())) {
 			return false;
 		} else if (rights
 			& ~(ChatRestriction::SendVoiceMessages
@@ -301,7 +309,7 @@ SendError RestrictionError(
 	} else if (const auto restricted = peer->amRestricted(restriction)) {
 		if (const auto user = peer->asUser()) {
 			if (user->requiresPremiumToWrite()
-				&& !user->session().premium()) {
+				&& !AccountIsPremium(&user->session())) {
 				return SendError({
 					.text = tr::lng_restricted_send_non_premium(
 						tr::now,

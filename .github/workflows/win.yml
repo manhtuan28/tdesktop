@@ -163,6 +163,9 @@ jobs:
 
       - name: Read configuration matrix.
         shell: bash
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
           ARTIFACT_NAME="Telegram"
 
@@ -202,10 +205,12 @@ jobs:
 
           echo "ARTIFACT_NAME=Windows-x64" >> $GITHUB_ENV
 
-          API="-D TDESKTOP_API_TEST=ON"
-          if [ $GITHUB_REF == 'refs/heads/nightly' ]; then
-            echo "Use the open credentials."
-            API="-D TDESKTOP_API_ID=611335 -D TDESKTOP_API_HASH=d524b414d21f4d37f08684c1df41ac9c"
+          if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
+            echo "Use the repository credentials."
+            API="-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH"
+          else
+            echo "::warning::TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing, falling back to the test-only api_id. Such a build cannot be used to log in."
+            API="-D TDESKTOP_API_TEST=ON"
           fi
           echo "TDESKTOP_BUILD_API=$API" >> $GITHUB_ENV
 
@@ -236,7 +241,7 @@ jobs:
           -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
           -D CMAKE_C_COMPILER_LAUNCHER=sccache ^
           -D CMAKE_CXX_COMPILER_LAUNCHER=sccache ^
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON ^
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF ^
           %TDESKTOP_BUILD_DEFINE%
 
@@ -250,9 +255,21 @@ jobs:
         if: (env.UPLOAD_ARTIFACT == 'true') || (github.ref == 'refs/heads/nightly')
         run: |
           set OUT=%TBUILD%\%REPO_NAME%\out\Release
-          mkdir artifact
-          move %OUT%\Telegram.exe artifact/
-          move %OUT%\Updater.exe artifact/
+          mkdir portable
+          rem Autoupdate is disabled, so Updater.exe is never built.
+          move %OUT%\Telegram.exe portable\
+
+      - name: Package portable archive.
+        if: (env.UPLOAD_ARTIFACT == 'true') || (github.ref == 'refs/heads/nightly')
+        shell: pwsh
+        run: |
+          $versionFile = Join-Path $env:TBUILD "$env:REPO_NAME\Telegram\build\version"
+          $found = Select-String -Path $versionFile -Pattern '^AppVersionStr\s+(\S+)' | Select-Object -First 1
+          $version = if ($found) { $found.Matches[0].Groups[1].Value } else { '0.0.0' }
+          Write-Host "Packaging TuanGram $version"
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          Compress-Archive -Path portable\* -DestinationPath "artifact\TuanGram-$version-x64-portable.zip" -Force
+
       - uses: actions/upload-artifact@v7
         name: Upload artifact.
         if: (env.UPLOAD_ARTIFACT == 'true') || (github.ref == 'refs/heads/nightly')

@@ -146,6 +146,9 @@ jobs:
 
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
           cd $REPO_NAME
           export CMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH$(find $LibrariesPath/local -mindepth 1 -maxdepth 1 -type d -exec printf ':%s' {} +)"
@@ -159,19 +162,32 @@ jobs:
             echo "ARTIFACT_NAME=macOS" >> $GITHUB_ENV
           fi
 
-          cmake -Bbuild . -DTDESKTOP_API_TEST=ON -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache $DEFINE
+          if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
+            echo "Use the repository credentials."
+            API="-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH"
+          else
+            echo "::warning::TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing, falling back to the test-only api_id. Such a build cannot be used to log in."
+            API="-D TDESKTOP_API_TEST=ON"
+          fi
+
+          cmake -Bbuild . $API -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON -D CMAKE_C_COMPILER_LAUNCHER=ccache -D CMAKE_CXX_COMPILER_LAUNCHER=ccache $DEFINE
           cmake --build build
           echo "ccache statistics:"
           ccache -s
           macdeployqt build/Telegram.app
-          codesign --remove-signature build/Telegram.app
+          # Ad-hoc sign instead of stripping the signature: this bundle is a
+          # shipped artifact, and an arm64 Mach-O with no signature at all is
+          # refused by the kernel at exec on Apple Silicon.
+          codesign --force --deep --sign - build/Telegram.app
 
       - name: Move artifact.
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
           cd $REPO_NAME/build
           mkdir artifact
-          mv Telegram.app artifact/
+          # upload-artifact drops symlinks and the executable bit, so the raw
+          # .app directory would never launch — ship a zip of the bundle.
+          ditto -c -k --sequesterRsrc --keepParent Telegram.app artifact/TuanGram-macOS.zip
       - uses: actions/upload-artifact@v7
         if: env.UPLOAD_ARTIFACT == 'true'
         name: Upload artifact.

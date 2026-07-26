@@ -187,7 +187,9 @@ constexpr auto kPreviewPostsLimit = 3;
 		&& !fromPeer;
 	const auto suggestAllChats = !waiting
 		&& state.tab == ChatSearchTab::MyMessages
-		&& (state.filter != ChatTypeFilter::All || !state.fromArchive);
+		&& (state.filter != ChatTypeFilter::All
+			|| state.mediaFilter != SearchMediaFilter::All
+			|| !state.fromArchive);
 	const auto icon = waiting
 		? SearchEmptyIcon::Search
 		: SearchEmptyIcon::NoResults;
@@ -245,6 +247,24 @@ constexpr auto kPreviewPostsLimit = 3;
 		return tr::lng_search_filter_channel(tr::now);
 	}
 	Unexpected("Chat type filter in search results.");
+}
+
+[[nodiscard]] QString SearchMediaFilterLabel(SearchMediaFilter filter) {
+	switch (filter) {
+	case SearchMediaFilter::All:
+		return tr::lng_search_filter_media_all(tr::now);
+	case SearchMediaFilter::Media:
+		return tr::lng_media_type_media(tr::now);
+	case SearchMediaFilter::Links:
+		return tr::lng_media_type_links(tr::now);
+	case SearchMediaFilter::Files:
+		return tr::lng_media_type_files(tr::now);
+	case SearchMediaFilter::Music:
+		return tr::lng_media_type_songs(tr::now);
+	case SearchMediaFilter::Voice:
+		return tr::lng_media_type_audios(tr::now);
+	}
+	Unexpected("Media filter in search results.");
 }
 
 } // namespace
@@ -1629,8 +1649,11 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
 				? st::searchedBarFont->underline()
 				: st::searchedBarFont;
 			if (hasChatTypeFilter()) {
-				const auto text = (_searchState.filter == ChatTypeFilter::All
-					&& !_searchState.fromArchive)
+				const auto media = _searchState.mediaFilter;
+				const auto text = (media != SearchMediaFilter::All)
+					? SearchMediaFilterLabel(media)
+					: (_searchState.filter == ChatTypeFilter::All
+						&& !_searchState.fromArchive)
 					? tr::lng_search_filter_non_archived(tr::now)
 					: ChatTypeFilterLabel(_searchState.filter);
 				if (!_chatTypeFilterWidth) {
@@ -4176,6 +4199,7 @@ void InnerWidget::applySearchState(SearchState state) {
 		onHashtagFilterUpdate(QStringView());
 	}
 	if (state.filter != _searchState.filter
+		|| state.mediaFilter != _searchState.mediaFilter
 		|| state.fromArchive != _searchState.fromArchive) {
 		_chatTypeFilterWidth = 0;
 		update();
@@ -4492,6 +4516,11 @@ rpl::producer<ChatSearchTab> InnerWidget::changeSearchTabRequests() const {
 auto InnerWidget::changeSearchFilterRequests() const
 -> rpl::producer<ChatTypeFilter>{
 	return _changeSearchFilterRequests.events();
+}
+
+auto InnerWidget::changeSearchMediaFilterRequests() const
+-> rpl::producer<SearchMediaFilter>{
+	return _changeSearchMediaFilterRequests.events();
 }
 
 rpl::producer<bool> InnerWidget::changeSearchFromArchiveRequests() const {
@@ -5746,6 +5775,21 @@ bool InnerWidget::chooseRow(
 			_menu->addAction(ChatTypeFilterLabel(tab), [=] {
 				_changeSearchFilterRequests.fire_copy(tab);
 			}, (tab == _searchState.filter)
+				? &st::mediaPlayerMenuCheck
+				: nullptr);
+		}
+		_menu->addSeparator();
+		for (const auto media : {
+			SearchMediaFilter::All,
+			SearchMediaFilter::Media,
+			SearchMediaFilter::Links,
+			SearchMediaFilter::Files,
+			SearchMediaFilter::Music,
+			SearchMediaFilter::Voice,
+		}) {
+			_menu->addAction(SearchMediaFilterLabel(media), [=] {
+				_changeSearchMediaFilterRequests.fire_copy(media);
+			}, (media == _searchState.mediaFilter)
 				? &st::mediaPlayerMenuCheck
 				: nullptr);
 		}

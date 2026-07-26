@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "api/api_send_progress.h"
 
+#include "core/application.h"
+#include "core/core_settings.h"
 #include "main/main_session.h"
 #include "history/history.h"
 #include "data/data_peer.h"
@@ -64,6 +66,25 @@ void SendProgressManager::update(
 		MsgId topMsgId,
 		SendProgressType type,
 		int progress) {
+	const auto peer = history->peer;
+	if (peer->isSelf()
+		|| (peer->isChannel()
+			&& !peer->isMegagroup()
+			&& type != SendProgressType::Speaking)) {
+		return;
+	} else if (type != SendProgressType::Speaking
+		&& Core::App().settings().ghostModeEnabled()) {
+		return;
+	}
+
+	const auto doing = (progress >= 0);
+	const auto key = Key{ history, topMsgId, type };
+	if (updated(key, doing)) {
+		cancel(history, topMsgId, type);
+		if (doing) {
+			send(key, progress);
+		}
+	}
 }
 
 bool SendProgressManager::updated(const Key &key, bool doing) {

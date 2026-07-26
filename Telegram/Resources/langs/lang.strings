@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 "lng_language_name" = "English";
 "lng_switch_to_this" = "Continue in English";
+"lng_switch_to_default" = "Continue in Vietnamese";
 
 "lng_menu_contacts" = "Contacts";
 "lng_menu_calls" = "Calls";
@@ -857,6 +858,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_settings_add_account_about" = "You can add up to four accounts with different phone numbers.";
 "lng_settings_peer_to_peer_about" = "Disabling peer-to-peer will relay all calls through Telegram servers to avoid revealing your IP address, but may decrease audio and video quality.";
 "lng_settings_advanced" = "Advanced";
+"lng_settings_ghost_mode_title" = "Ghost mode";
+"lng_settings_ghost_mode" = "Enable ghost mode";
+"lng_settings_ghost_mode_about" = "Don't send read receipts or typing status. Nobody will see when you read their messages or when you are typing. Unread counters may reappear after a restart.";
 "lng_settings_stickers_emoji" = "Stickers and emoji";
 "lng_settings_messages" = "Messages";
 "lng_settings_themes" = "Themes";
@@ -1706,6 +1710,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_profile_shared_links#other" = "{count} shared links";
 "lng_profile_copy_phone" = "Copy Phone Number";
 "lng_profile_copy_fullname" = "Copy Name";
+"lng_profile_id_label" = "ID";
+"lng_profile_copy_id" = "Copy ID";
 "lng_profile_photo_by_you" = "photo set by you";
 "lng_profile_public_photo" = "public photo";
 "lng_profile_administrators#one" = "{count} administrator";
@@ -5874,6 +5880,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 "lng_search_filter_private" = "Private chats";
 "lng_search_filter_group" = "Group chats";
 "lng_search_filter_channel" = "Channels";
+"lng_search_filter_media_all" = "All media";
 "lng_search_filter_from_archive" = "From archive";
 "lng_search_filter_non_archived" = "Non archived";
 "lng_search_sponsored_button" = "Ad ⋮";
@@ -7336,6 +7343,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 "lng_translate_settings_subtitle" = "Translate Messages";
 "lng_translate_settings_show" = "Show Translate Button";
+"lng_translate_settings_outgoing" = "Translate outgoing messages to...";
+"lng_translate_settings_outgoing_about" = "Choose the default language for translating your outgoing messages.";
+"lng_translate_outgoing_menu" = "Translate and Send...";
+"lng_translate_outgoing_progress" = "Translating...";
+"lng_translate_outgoing_failed" = "Could not translate the message. Your text was kept.";
 "lng_translate_settings_use_platform_mac" = "Use Apple Translations";
 "lng_translate_settings_use_platform_mac_about" = "Translation on macOS won't work until you download local language packs in System Settings.";
 "lng_translate_settings_use_platform_linux" = "Use KDE's Crow Translate";

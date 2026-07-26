@@ -35,6 +35,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_layers.h"
 #include "styles/style_boxes.h"
 
+namespace Data {
+
+// TuanGram: defined in data/data_histories.cpp, shared so that the hint shown
+// here can never diverge from what Histories::deleteMessages() actually does.
+[[nodiscard]] bool CanDeleteMessageOnServer(not_null<HistoryItem*> item);
+
+} // namespace Data
+
 namespace {
 
 constexpr auto kDeleteMessagesBoxAnimationDuration = crl::time(80);
@@ -216,13 +224,44 @@ void DeleteMessagesBox::prepare() {
 				}, lifetime());
 				appendDetails(std::move(revoke->description));
 			} else if (peer->isChannel()) {
-				if (peer->isMegagroup()) {
-					appendDetails({
-						tr::lng_delete_for_everyone_hint(
-							tr::now,
-							lt_count,
-							count)
-					});
+				const auto items = peer->owner().idsToItems(_ids);
+				if (items.size() != _ids.size()) {
+					// We don't have information about all messages.
+					if (peer->isMegagroup()) {
+						appendDetails({
+							tr::lng_delete_for_everyone_hint(
+								tr::now,
+								lt_count,
+								count)
+						});
+					}
+				} else {
+					// Must mirror the routing in Session::deleteMessages():
+					// a message is sent to the server only when it is both
+					// regular and deletable there.
+					const auto localOnly = int(ranges::count_if(
+						items,
+						[](not_null<HistoryItem*> item) {
+							return !item->isRegular()
+								|| !Data::CanDeleteMessageOnServer(item);
+						}));
+					const auto serverSide = int(items.size()) - localOnly;
+					if (serverSide > 0 && peer->isMegagroup()) {
+						appendDetails({
+							tr::lng_delete_for_everyone_hint(
+								tr::now,
+								lt_count,
+								serverSide)
+						});
+					}
+					if (localOnly > 0) {
+						appendDetails({
+							tr::lng_delete_for_me_hint(
+								tr::now,
+								lt_count,
+								localOnly)
+						});
+					}
 				}
 			} else if (peer->isChat()) {
 				appendDetails({

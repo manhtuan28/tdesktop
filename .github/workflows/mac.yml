@@ -87,6 +87,9 @@ jobs:
 
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
           cd $REPO_NAME/Telegram
 
@@ -99,14 +102,22 @@ jobs:
             echo "ARTIFACT_NAME=Telegram" >> $GITHUB_ENV
           fi
 
+          if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
+            echo "Use the repository credentials."
+            API="-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH"
+          else
+            echo "::warning::TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing, falling back to the test-only api_id. Such a build cannot be used to log in."
+            API="-D TDESKTOP_API_TEST=ON"
+          fi
+
           ./configure.sh \
           -D CMAKE_CONFIGURATION_TYPES=Debug \
           -D CMAKE_COMPILE_WARNING_AS_ERROR=ON \
           -D CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO \
           -D CMAKE_C_COMPILER_LAUNCHER=ccache \
           -D CMAKE_CXX_COMPILER_LAUNCHER=ccache \
-          -D TDESKTOP_API_TEST=ON \
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF \
+          $API \
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF \
           $DEFINE
 
@@ -120,8 +131,8 @@ jobs:
         run: |
           cd $REPO_NAME/out/Debug
           mkdir artifact
+          # Autoupdate is disabled, so the Updater target is never built.
           mv Telegram.app artifact/
-          mv Updater artifact/
       - uses: actions/upload-artifact@v7
         if: env.UPLOAD_ARTIFACT == 'true'
         name: Upload artifact.

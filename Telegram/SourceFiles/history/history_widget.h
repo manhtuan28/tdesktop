@@ -432,7 +432,8 @@ private:
 	void fileChosen(ChatHelpers::FileChosen &&data);
 	void setupSendMenu(
 		not_null<Ui::RpWidget*> button,
-		Fn<void(SendMenu::Action, SendMenu::Details)> action);
+		Fn<void(SendMenu::Action, SendMenu::Details)> action,
+		bool translateOutgoing = false);
 
 	void updateFieldSubmitSettings();
 	bool clearMaybeSendStart();
@@ -475,6 +476,7 @@ private:
 	void sendWithModifiers(Qt::KeyboardModifiers modifiers);
 	void sendScheduled(Api::SendOptions initialOptions);
 	void translateAndSend(Api::SendOptions options);
+	void cancelTranslateOutgoing();
 	[[nodiscard]] SendMenu::Details sendButtonMenuDetails() const;
 	[[nodiscard]] SendMenu::Details sendButtonDefaultDetails() const;
 	void handlePendingHistoryUpdate();
@@ -828,6 +830,7 @@ private:
 	bool _sentFromScheduledTip = false;
 
 	mtpRequestId _saveEditMsgRequestId = 0;
+	mtpRequestId _translateOutgoingRequestId = 0;
 
 	std::unique_ptr<HistoryView::Controls::WebpageProcessor> _preview;
 	Fn<bool(QPainter &p, QRect to)> _previewDrawPreview;

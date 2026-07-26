@@ -89,6 +89,10 @@ private:
 
 	QString _suggestedLanguage;
 	bool _languageWasSuggested = false;
+	// Set once resetToDefault() has already fallen back, so a server that
+	// rejects both the default pack and its fallback cannot make us ping-pong
+	// between them forever (each switch re-inits the MTP connection).
+	bool _defaultFallbackTried = false;
 
 	mtpRequestId _switchingToLanguageRequest = 0;
 	QString _switchingToLanguageId;

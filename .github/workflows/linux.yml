@@ -110,6 +110,9 @@ jobs:
 
       - name: Telegram Desktop build.
         if: env.ONLY_CACHE == 'false'
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
         run: |
           DEFINE=""
           if [ -n "${{ matrix.defines }}" ]; then
@@ -118,6 +121,14 @@ jobs:
             echo "ARTIFACT_NAME=Linux-x64 ${{ matrix.defines }}" >> $GITHUB_ENV
           else
             echo "ARTIFACT_NAME=Linux-x64" >> $GITHUB_ENV
+          fi
+
+          if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
+            echo "Use the repository credentials."
+            API="-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH"
+          else
+            echo "::warning::TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing, falling back to the test-only api_id. Such a build cannot be used to log in."
+            API="-D TDESKTOP_API_TEST=ON"
           fi
 
           ccache -z
@@ -132,8 +143,8 @@ jobs:
           env -u CCACHE_DISABLE /usr/src/tdesktop/Telegram/build/docker/centos_env/build.sh \
           -D CMAKE_CONFIGURATION_TYPES=Release \
           -D CMAKE_COMPILE_WARNING_AS_ERROR=OFF \
-          -D TDESKTOP_API_TEST=ON \
-          -D DESKTOP_APP_DISABLE_AUTOUPDATE=OFF \
+          $API \
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON \
           -D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF \
           $DEFINE
 
@@ -185,42 +196,67 @@ jobs:
       - name: Move artifact.
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
-          VERSION="0.0.0-dev"
+          VERSION=$(grep "^AppVersionStr " Telegram/build/version | awk '{print $2}')
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
           fi
-          cd out/Release
-          mkdir -p artifact
-          
-          # Create .tar.xz
-          tar -cJf artifact/telegram-desktop-linux-x64.tar.xz Telegram Updater
-          
-          # Create .deb
-          mkdir -p deb-pkg/usr/bin
-          mkdir -p deb-pkg/usr/share/applications
-          mkdir -p deb-pkg/usr/share/icons/hicolor/256x256/apps
-          mkdir -p deb-pkg/DEBIAN
-          
-          cp Telegram deb-pkg/usr/bin/
-          cp Updater deb-pkg/usr/bin/
-          cp ../../lib/xdg/org.telegram.desktop.desktop deb-pkg/usr/share/applications/org.telegram.desktop.desktop
-          cp ../../Telegram/Resources/art/icon256.png deb-pkg/usr/share/icons/hicolor/256x256/apps/telegram.png
-          
-          cat <<CONTROL > deb-pkg/DEBIAN/control
-          Package: telegram-desktop
+          if [ -z "$VERSION" ]; then VERSION="0.0.0"; fi
+
+          ARTIFACT="$PWD/out/Release/artifact"
+          mkdir -p "$ARTIFACT"
+
+          # Portable tarball. Autoupdate is disabled, so CMake never builds the
+          # Updater target and there is nothing else to ship next to Telegram.
+          tar -cJf "$ARTIFACT/tuangram-${VERSION}-linux-x64.tar.xz" -C out/Release Telegram
+
+          # Debian package. Everything lives under /opt/tuangram so that this
+          # package never overwrites the official telegram-desktop one.
+          PKGDIR="$PWD/deb-pkg"
+          rm -rf "$PKGDIR"
+          mkdir -p "$PKGDIR/DEBIAN"
+          mkdir -p "$PKGDIR/opt/tuangram"
+          mkdir -p "$PKGDIR/usr/bin"
+          mkdir -p "$PKGDIR/usr/share/applications"
+          mkdir -p "$PKGDIR/usr/share/icons/hicolor/256x256/apps"
+
+          install -m 755 out/Release/Telegram "$PKGDIR/opt/tuangram/Telegram"
+          ln -s /opt/tuangram/Telegram "$PKGDIR/usr/bin/tuangram"
+
+          # The app hardcodes org.telegram.desktop as its Linux application id
+          # (specific_linux.cpp: desktopFileName() / ApplicationIconName()), so
+          # the .desktop and icon basenames MUST stay org.telegram.desktop or
+          # themed icon lookup and Wayland window->launcher matching break.
+          # Only the dpkg package name is tuangram, and it Conflicts with the
+          # official telegram-desktop package because they share these paths.
+          install -m 644 Telegram/Resources/art/icon256.png \
+            "$PKGDIR/usr/share/icons/hicolor/256x256/apps/org.telegram.desktop.png"
+
+          # Only the binary paths need rewriting for the /opt layout.
+          sed -e 's|^TryExec=.*|TryExec=/opt/tuangram/Telegram|' \
+              -e 's|^Exec=Telegram -- %U|Exec=/opt/tuangram/Telegram -- %U|' \
+              -e 's|^Exec=Telegram -quit|Exec=/opt/tuangram/Telegram -quit|' \
+              lib/xdg/org.telegram.desktop.desktop \
+              > "$PKGDIR/usr/share/applications/org.telegram.desktop.desktop"
+          chmod 644 "$PKGDIR/usr/share/applications/org.telegram.desktop.desktop"
+
+          cat <<CONTROL > "$PKGDIR/DEBIAN/control"
+          Package: tuangram
           Version: $VERSION
           Section: net
           Priority: optional
           Architecture: amd64
-          Depends: libxcb1, libgl1, libxkbcommon0
+          Depends: libc6, libstdc++6, libx11-6, libxcb1, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-xkb1, libxkbcommon0, libxkbcommon-x11-0, libwayland-client0, libfontconfig1, libglib2.0-0, libgl1, zlib1g
+          Conflicts: telegram-desktop
           Maintainer: Manh Tuan <buimanhtuan2k4@gmail.com>
-          Description: Telegram Desktop Custom Build
+          Description: TuanGram - modded Telegram Desktop
            Fast and secure desktop PC app.
           CONTROL
-          
-          dpkg-deb --build deb-pkg artifact/telegram-desktop_${VERSION}_amd64.deb
 
-      - uses: actions/upload-artifact@v4
+          # --root-owner-group: the build tree is owned by the runner user, and
+          # without it every packaged file would install as uid/gid 1001.
+          dpkg-deb --root-owner-group --build "$PKGDIR" "$ARTIFACT/tuangram_${VERSION}_amd64.deb"
+
+      - uses: actions/upload-artifact@v7
         if: env.UPLOAD_ARTIFACT == 'true'
         name: Upload artifact.
         with:

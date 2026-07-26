@@ -225,7 +225,9 @@ bool GenerateDesktopFile(
 		bool onlyMainGroup = false,
 		bool silent = false) {
 	const auto executable = ExecutablePathForShortcuts();
-	return true;
+	if (targetPath.isEmpty() || executable.isEmpty()) {
+		return false;
+	}
 
 	DEBUG_LOG(("App Info: placing .desktop file to %1").arg(targetPath));
 	if (!QDir(targetPath).exists()) QDir().mkpath(targetPath);

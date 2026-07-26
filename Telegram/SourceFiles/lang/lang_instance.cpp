@@ -27,6 +27,10 @@ constexpr auto kCloudLangPackName = "tdesktop"_cs;
 constexpr auto kCustomLanguage = "#custom"_cs;
 constexpr auto kLangValuesLimit = 20000;
 
+// The default langpack id is a community pack ("vi-raw") and not an ISO
+// language code, so anything that needs a real code uses this one instead.
+constexpr auto kFallbackLanguageId = "vi"_cs;
+
 std::vector<QString> PrepareDefaultValues() {
 	auto result = std::vector<QString>();
 	result.reserve(kKeysCount);
@@ -225,12 +229,15 @@ QString CustomLanguageId() {
 }
 
 Language DefaultLanguage() {
+	// Must describe exactly DefaultLanguageId(): every "reset to the default
+	// language" path goes through here, so any mismatch with the id would
+	// silently switch the user to a different language.
 	return Language{
-		u"en"_q,
-		QString(),
-		QString(),
-		u"English"_q,
-		u"English"_q,
+		DefaultLanguageId(),
+		kFallbackLanguageId.utf16(),
+		kFallbackLanguageId.utf16(),
+		u"Vietnamese"_q,
+		u"Ti\u1ebfng Vi\u1ec7t"_q, // Tieng Viet.
 	};
 }
 
@@ -306,7 +313,18 @@ void Instance::reset(const Language &data) {
 
 QString Instance::systemLangCode() const {
 	if (_systemLanguage.isEmpty()) {
-		_systemLanguage = "vi-raw"_q;
+		_systemLanguage = Platform::SystemLanguage();
+		if (_systemLanguage.isEmpty()) {
+			auto uiLanguages = QLocale::system().uiLanguages();
+			if (!uiLanguages.isEmpty()) {
+				_systemLanguage = uiLanguages.front();
+			}
+			if (_systemLanguage.isEmpty()) {
+				// This is sent to the server as system_lang_code, so it must
+				// be a real language code, not the default langpack id.
+				_systemLanguage = kFallbackLanguageId.utf16();
+			}
+		}
 	}
 	return _systemLanguage;
 }

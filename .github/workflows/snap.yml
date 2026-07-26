@@ -53,11 +53,23 @@ jobs:
           lvm-span-mountpoint: /var/snap/lxd/common/lxd/storage-pools/default/containers
 
       - name: Snapcraft cache.
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/snapcraft
           key: ${{ runner.OS }}-snapcraft-${{ github.sha }}
           restore-keys: ${{ runner.OS }}-snapcraft-
+
+      - name: Use the repository API credentials.
+        env:
+          TDESKTOP_API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          TDESKTOP_API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
+            sed -i "s|^\( *\)- -DTDESKTOP_API_ID=.*|\1- -DTDESKTOP_API_ID=$TDESKTOP_API_ID|" snap/snapcraft.yaml
+            sed -i "s|^\( *\)- -DTDESKTOP_API_HASH=.*|\1- -DTDESKTOP_API_HASH=$TDESKTOP_API_HASH|" snap/snapcraft.yaml
+          else
+            echo "::warning::TDESKTOP_API_ID / TDESKTOP_API_HASH secrets are missing, building with the credentials checked into snapcraft.yaml."
+          fi
 
       - name: Telegram Desktop snap build.
         run: sudo -u $USER snap run snapcraft --verbosity=debug
@@ -65,11 +77,17 @@ jobs:
       - name: Move artifact.
         if: env.UPLOAD_ARTIFACT == 'true'
         run: |
-          artifact_name=$(echo telegram-desktop_*.snap)
+          # snapcraft names the package after 'name:' in snap/snapcraft.yaml.
+          artifact_name=$(ls -1 tuangram_*.snap 2>/dev/null | head -1)
+          if [ -z "$artifact_name" ]; then
+            echo "::error::No tuangram_*.snap was produced by the snap build."
+            ls -la
+            exit 1
+          fi
           echo "ARTIFACT_NAME=$artifact_name" >> $GITHUB_ENV
 
           mkdir artifact
-          mv $artifact_name artifact
+          mv "$artifact_name" artifact
 
       - uses: actions/upload-artifact@v7
         if: env.UPLOAD_ARTIFACT == 'true'

@@ -1,9 +1,10 @@
-#define MyAppShortName "Telegram"
-#define MyAppName "Telegram Desktop"
-#define MyAppPublisher "Telegram FZ-LLC"
+#define MyAppShortName "TuanGram"
+#define MyAppName "TuanGram"
+#define MyAppPublisher "TuanGram"
 #define MyAppURL "https://github.com/manhtuan28/tdesktop"
 #define MyAppExeName "Telegram.exe"
-#define MyAppId "53F49750-6209-4FBF-9CA8-7A333C87D1ED"
+; Must stay in sync with AppId in Telegram/SourceFiles/core/version.h.
+#define MyAppId "71A49D72-8B44-412B-83B0-1D42C73C3359"
 #define CurrentYear GetDateTimeString('yyyy','','')
 
 [Setup]
@@ -13,7 +14,8 @@
 AppId={{{#MyAppId}}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-AppCopyright={#MyAppPublisher} 2014-{#CurrentYear}
+; Upstream attribution is kept here on purpose: TuanGram is a GPL fork of Telegram Desktop.
+AppCopyright=Telegram FZ-LLC 2014-{#CurrentYear}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
@@ -24,7 +26,7 @@ AllowNoIcons=yes
 OutputDir={#ReleasePath}
 SetupIconFile={#SourcePath}..\Resources\art\icon256.ico
 UninstallDisplayName={#MyAppName}
-UninstallDisplayIcon={app}\Telegram.exe
+UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
 DisableStartupPrompt=yes

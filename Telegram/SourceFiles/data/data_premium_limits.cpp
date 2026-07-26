@@ -7,10 +7,23 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "data/data_premium_limits.h"
 
+#include "data/data_user.h"
 #include "main/main_app_config.h"
 #include "main/main_session.h"
 
 namespace Data {
+namespace {
+
+// PremiumLimits::isPremium() is force-unlocked to raise the purely local
+// limits (pins, folders, chats per folder). Limits the server re-validates
+// when the request arrives must stay honest, otherwise the value is composed
+// locally and then rejected outright, so those read the real tier.
+// UserData::isPremium() is unlocked for self, so read the flag directly.
+[[nodiscard]] bool AccountIsPremium(not_null<Main::Session*> session) {
+	return (session->user()->flags() & UserDataFlag::Premium) != 0;
+}
+
+} // namespace
 
 PremiumLimits::PremiumLimits(not_null<Main::Session*> session)
 : _session(session) {
@@ -171,7 +184,7 @@ int PremiumLimits::captionLengthPremium() const {
 	return appConfigLimit("caption_length_limit_premium", 2048);
 }
 int PremiumLimits::captionLengthCurrent() const {
-	return isPremium()
+	return AccountIsPremium(_session)
 		? captionLengthPremium()
 		: captionLengthDefault();
 }
@@ -185,7 +198,7 @@ int PremiumLimits::messageLengthPremium() const {
 }
 
 int PremiumLimits::messageLengthCurrent() const {
-	return isPremium()
+	return AccountIsPremium(_session)
 		? messageLengthPremium()
 		: messageLengthDefault();
 }
@@ -197,7 +210,7 @@ int PremiumLimits::uploadMaxPremium() const {
 	return appConfigLimit("upload_max_fileparts_premium", 8000);
 }
 int PremiumLimits::uploadMaxCurrent() const {
-	return isPremium()
+	return AccountIsPremium(_session)
 		? uploadMaxPremium()
 		: uploadMaxDefault();
 }
@@ -209,7 +222,7 @@ int PremiumLimits::aboutLengthPremium() const {
 	return appConfigLimit("about_length_limit_premium", 140);
 }
 int PremiumLimits::aboutLengthCurrent() const {
-	return isPremium()
+	return AccountIsPremium(_session)
 		? aboutLengthPremium()
 		: aboutLengthDefault();
 }

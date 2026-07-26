@@ -346,7 +346,8 @@ QByteArray Settings::serialize() const {
 		+ sizeof(qint32) // _mediaGridZoomStep
 		+ sizeof(qint32) // _pullToNextChannel
 		+ sizeof(qint32) // _chatFiltersTabsMode
-		+ sizeof(quint64); // _translateOutgoingToRaw
+		+ sizeof(quint64) // _translateOutgoingToRaw
+		+ sizeof(qint32); // _ghostModeEnabled
 
 	auto result = QByteArray();
 	result.reserve(size);
@@ -525,6 +526,7 @@ QByteArray Settings::serialize() const {
 		stream << qint32(_pullToNextChannel.current() ? 1 : 0);
 		stream << qint32(_chatFiltersTabsMode.current());
 		stream << quint64(QLocale::Language(_translateOutgoingToRaw.current()));
+		stream << qint32(_ghostModeEnabled.current() ? 1 : 0);
 	}
 
 	Ensures(result.size() == size);
@@ -640,6 +642,7 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 	qint32 translateChatEnabled = _translateChatEnabled.current() ? 1 : 0;
 	quint64 translateToRaw = _translateToRaw.current();
 	quint64 translateOutgoingToRaw = _translateOutgoingToRaw.current();
+	qint32 ghostModeEnabled = _ghostModeEnabled.current() ? 1 : 0;
 	qint32 hideChatName = _windowTitleContent.current().hideChatName ? 1 : 0;
 	qint32 hideAccountName = _windowTitleContent.current().hideAccountName ? 1 : 0;
 	qint32 hideTotalUnread = _windowTitleContent.current().hideTotalUnread ? 1 : 0;
@@ -1058,6 +1061,9 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 	if (!stream.atEnd()) {
 		stream >> translateOutgoingToRaw;
 	}
+	if (!stream.atEnd()) {
+		stream >> ghostModeEnabled;
+	}
 	if (stream.status() != QDataStream::Ok) {
 		LOG(("App Error: "
 			"Bad data for Core::Settings::constructFromSerialized()"));
@@ -1277,6 +1283,7 @@ void Settings::addFromSerialized(const QByteArray &serialized) {
 	} else {
 		_translateOutgoingToRaw = int(QLocale::Vietnamese); // Default for TuanGram users
 	}
+	_ghostModeEnabled = (ghostModeEnabled == 1);
 	_windowTitleContent = WindowTitleContent{
 		.hideChatName = (hideChatName == 1),
 		.hideAccountName = (hideAccountName == 1),

@@ -52,97 +52,218 @@ constexpr auto kRecompressAfterBpp = 4;
 
 using Ui::ValidateThumbDimensions;
 
-void StripJpegMetadata(QByteArray &data) {
-	if (data.size() < 4
-		|| static_cast<uchar>(data[0]) != 0xFF
-		|| static_cast<uchar>(data[1]) != 0xD8) {
-		return;
+// TuanGram: Reads only the TIFF/EXIF Orientation tag (0x0112) of IFD0 out of
+// an APP1 payload, so that the visual rotation of a photo can be preserved
+// while everything else in the EXIF block (GPS, camera, timestamps, maker
+// notes, embedded thumbnail) is dropped. Returns 0 when the payload is not a
+// well formed EXIF block or has no usable orientation value.
+[[nodiscard]] int ReadExifOrientation(const uchar *exif, qint64 size) {
+	constexpr auto kExifHeader = qint64(6);
+	constexpr auto kTiffHeader = qint64(8);
+	if (size < kExifHeader + kTiffHeader
+		|| memcmp(exif, "Exif\0\0", kExifHeader) != 0) {
+		return 0;
+	}
+	const auto tiff = exif + kExifHeader;
+	const auto tiffSize = size - kExifHeader;
+	const auto big = (tiff[0] == 'M') && (tiff[1] == 'M');
+	if (!big && ((tiff[0] != 'I') || (tiff[1] != 'I'))) {
+		return 0;
+	}
+	const auto read16 = [&](qint64 offset) {
+		return big
+			? ((int(tiff[offset]) << 8) | int(tiff[offset + 1]))
+			: ((int(tiff[offset + 1]) << 8) | int(tiff[offset]));
+	};
+	const auto read32 = [&](qint64 offset) {
+		return big
+			? ((quint32(tiff[offset]) << 24)
+				| (quint32(tiff[offset + 1]) << 16)
+				| (quint32(tiff[offset + 2]) << 8)
+				| quint32(tiff[offset + 3]))
+			: ((quint32(tiff[offset + 3]) << 24)
+				| (quint32(tiff[offset + 2]) << 16)
+				| (quint32(tiff[offset + 1]) << 8)
+				| quint32(tiff[offset]));
+	};
+	if (read16(2) != 0x2A) {
+		return 0;
+	}
+	const auto directory = qint64(read32(4));
+	if (directory < kTiffHeader || directory + 2 > tiffSize) {
+		return 0;
+	}
+	const auto count = qint64(read16(directory));
+	if (directory + 2 + count * 12 > tiffSize) {
+		return 0;
+	}
+	for (auto i = qint64(0); i != count; ++i) {
+		const auto entry = directory + 2 + i * 12;
+		if (read16(entry) != 0x0112) {
+			continue;
+		}
+		const auto type = read16(entry + 2);
+		if ((type != 3 && type != 4) || read32(entry + 4) != 1U) {
+			return 0;
+		}
+		const auto value = (type == 3)
+			? qint64(read16(entry + 8))
+			: qint64(read32(entry + 8));
+		return (value >= 1 && value <= 8) ? int(value) : 0;
+	}
+	return 0;
+}
+
+[[nodiscard]] QByteArray MakeExifOrientationSegment(int orientation) {
+	const char bytes[] = {
+		'\xFF', '\xE1', '\x00', '\x22',
+		'E', 'x', 'i', 'f', '\x00', '\x00',
+		'M', 'M', '\x00', '\x2A', '\x00', '\x00', '\x00', '\x08',
+		'\x00', '\x01',
+		'\x01', '\x12', '\x00', '\x03', '\x00', '\x00', '\x00', '\x01',
+		'\x00', char(orientation), '\x00', '\x00',
+		'\x00', '\x00', '\x00', '\x00',
+	};
+	return QByteArray(bytes, int(sizeof(bytes)));
+}
+
+bool StripJpegMetadata(QByteArray &data) {
+	if (data.size() < 4) {
+		return false;
+	}
+	const auto size = qint64(data.size());
+	const auto bytes = reinterpret_cast<const uchar*>(data.constData());
+	if (bytes[0] != 0xFF || bytes[1] != 0xD8) {
+		return false;
 	}
 	auto result = QByteArray();
 	result.reserve(data.size());
-	result.append(data.data(), 2);
+	result.append(data.constData(), 2);
 
-	auto pos = 2;
-	while (pos + 4 <= data.size()) {
-		const auto marker0 = static_cast<uchar>(data[pos]);
-		const auto marker1 = static_cast<uchar>(data[pos + 1]);
-		if (marker1 == 0xFF) {
-			result.append(data.data() + pos, 1);
-			++pos;
-			continue;
-		}
+	auto stripped = false;
+	auto complete = false;
+	auto orientationKept = false;
+	auto pos = qint64(2);
+	while (pos + 4 <= size) {
+		const auto marker0 = bytes[pos];
+		const auto marker1 = bytes[pos + 1];
 		if (marker0 != 0xFF) {
 			break;
-		}
-		if (marker1 == 0xDA) {
-			result.append(data.data() + pos, data.size() - pos);
+		} else if (marker1 == 0xFF) {
+			result.append(data.constData() + pos, 1);
+			++pos;
+			continue;
+		} else if (marker1 == 0xDA) {
+			result.append(data.constData() + pos, qsizetype(size - pos));
+			complete = true;
 			break;
-		}
-		if (marker1 == 0xD9) {
-			result.append(data.data() + pos, 2);
+		} else if (marker1 == 0xD9) {
+			result.append(data.constData() + pos, 2);
+			complete = true;
 			break;
+		} else if (marker1 == 0x01
+			|| marker1 == 0xD8
+			|| (marker1 >= 0xD0 && marker1 <= 0xD7)) {
+			result.append(data.constData() + pos, 2);
+			pos += 2;
+			continue;
 		}
-		const auto segmentLength = (static_cast<uchar>(data[pos + 2]) << 8)
-			| static_cast<uchar>(data[pos + 3]);
+		const auto segmentLength = qint64(
+			(int(bytes[pos + 2]) << 8) | int(bytes[pos + 3]));
 		const auto fullLength = 2 + segmentLength;
-		if (pos + fullLength > data.size()) {
+		if (segmentLength < 2 || pos + fullLength > size) {
 			break;
 		}
-		
+
 		// TuanGram: Strip ALL APP1 (EXIF/XMP) and APP13 (IPTC/Photoshop) to guarantee cleanliness
 		const auto strip = (marker1 == 0xE1) || (marker1 == 0xED);
 		if (!strip) {
-			result.append(data.data() + pos, fullLength);
+			result.append(data.constData() + pos, qsizetype(fullLength));
+		} else {
+			stripped = true;
+			if (marker1 == 0xE1 && !orientationKept) {
+				const auto orientation = ReadExifOrientation(
+					bytes + pos + 4,
+					segmentLength - 2);
+				if (orientation > 1) {
+					result.append(MakeExifOrientationSegment(orientation));
+					orientationKept = true;
+				}
+			}
 		}
 		pos += fullLength;
 	}
-	if (result.size() < data.size()) {
-		data = std::move(result);
+	if (!complete || !stripped) {
+		return false;
 	}
+	data = std::move(result);
+	return true;
 }
 
-void StripPngMetadata(QByteArray &data) {
-	if (data.size() < 8
-		|| memcmp(data.constData(), "\x89PNG\r\n\x1a\n", 8) != 0) {
-		return;
+bool StripPngMetadata(QByteArray &data) {
+	if (data.size() < 8) {
+		return false;
+	}
+	const auto size = qint64(data.size());
+	const auto bytes = reinterpret_cast<const uchar*>(data.constData());
+	if (memcmp(bytes, "\x89PNG\r\n\x1a\n", 8) != 0) {
+		return false;
 	}
 	auto result = QByteArray();
 	result.reserve(data.size());
-	result.append(data.data(), 8);
+	result.append(data.constData(), 8);
 
-	auto pos = 8;
-	while (pos + 12 <= data.size()) {
-		const auto chunkDataLength = (static_cast<uchar>(data[pos]) << 24)
-			| (static_cast<uchar>(data[pos + 1]) << 16)
-			| (static_cast<uchar>(data[pos + 2]) << 8)
-			| static_cast<uchar>(data[pos + 3]);
-		const auto fullLength = 12 + chunkDataLength;
-		if (pos + fullLength > data.size()) {
+	auto stripped = false;
+	auto complete = false;
+	auto pos = qint64(8);
+	while (pos + 12 <= size) {
+		const auto chunkDataLength = (quint32(bytes[pos]) << 24)
+			| (quint32(bytes[pos + 1]) << 16)
+			| (quint32(bytes[pos + 2]) << 8)
+			| quint32(bytes[pos + 3]);
+		if (chunkDataLength > 0x7FFFFFFFU) {
+			break;
+		}
+		const auto fullLength = 12 + qint64(chunkDataLength);
+		if (pos + fullLength > size) {
 			break;
 		}
 		const auto type = QByteArray::fromRawData(
-			data.data() + pos + 4,
+			data.constData() + pos + 4,
 			4);
 		const auto strip = (type == "tEXt")
 			|| (type == "iTXt")
 			|| (type == "zTXt")
 			|| (type == "eXIf");
-		if (!strip) {
-			result.append(data.data() + pos, fullLength);
+		if (strip) {
+			stripped = true;
+		} else {
+			result.append(data.constData() + pos, qsizetype(fullLength));
 		}
 		pos += fullLength;
+		if (type == "IEND") {
+			complete = true;
+			break;
+		}
 	}
-	if (result.size() < data.size()) {
-		data = std::move(result);
+	if (!complete || !stripped) {
+		return false;
 	}
+	data = std::move(result);
+	return true;
 }
 
-void StripImageFileMetadata(QByteArray &data, const QString &mime) {
+[[nodiscard]] bool CanStripImageFileMetadata(const QString &mime) {
+	return (mime == u"image/jpeg"_q) || (mime == u"image/png"_q);
+}
+
+bool StripImageFileMetadata(QByteArray &data, const QString &mime) {
 	if (mime == u"image/jpeg"_q) {
-		StripJpegMetadata(data);
+		return StripJpegMetadata(data);
 	} else if (mime == u"image/png"_q) {
-		StripPngMetadata(data);
+		return StripPngMetadata(data);
 	}
+	return false;
 }
 
 struct PreparedFileThumbnail {
@@ -1070,6 +1191,34 @@ void FileLoadTask::process(ProcessArgs &&args) {
 		_type = SendMediaType::File;
 	}
 
+	// TuanGram: Strip the metadata of images sent as files before the MTP
+	// document is built, so that document->size matches the uploaded bytes.
+	// Photos are not touched here, they upload the already recompressed and
+	// stripped filedata and never read _content.
+	auto contentModified = false;
+	// Check the mime BEFORE opening the file: otherwise a multi-GB .tif or
+	// .webp would be read fully into memory only to be discarded.
+	if (_type != SendMediaType::Photo
+		&& CanStripImageFileMetadata(filemime)
+		&& !Core::IsMimeSticker(filemime)) {
+		if (!_content.isEmpty()) {
+			contentModified = StripImageFileMetadata(_content, filemime);
+		} else if (!_filepath.isEmpty()) {
+			auto file = QFile(_filepath);
+			if (file.open(QIODevice::ReadOnly)) {
+				auto content = file.readAll();
+				if (StripImageFileMetadata(content, filemime)) {
+					contentModified = true;
+					_content = std::move(content);
+				}
+			}
+		}
+		if (contentModified) {
+			filesize = _content.size();
+			_result->filesize = qMin(filesize, qint64(UINT_MAX));
+		}
+	}
+
 	if (isVoice) {
 		const auto seconds = _duration / 1000;
 		auto flags = MTPDdocumentAttributeAudio::Flag::f_voice | MTPDdocumentAttributeAudio::Flag::f_waveform;
@@ -1116,25 +1265,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
 	}
 
 	_result->type = _type;
-	_result->filepath = _filepath;
-
-	if (filemime.startsWith(u"image/"_q) && !Core::IsMimeSticker(filemime)) {
-		if (_content.isEmpty() && !_filepath.isEmpty()) {
-			QFile file(_filepath);
-			if (file.open(QIODevice::ReadOnly)) {
-				_content = file.readAll();
-			}
-		}
-		if (!_content.isEmpty()) {
-			StripImageFileMetadata(_content, filemime);
-			filesize = _content.size();
-			_result->filesize = qMin(
-				qint64(_content.size()),
-				qint64(UINT_MAX));
-			_result->filepath = QString();
-		}
-	}
-
+	_result->filepath = contentModified ? QString() : _filepath;
 	_result->content = _content;
 
 	_result->filename = filename;

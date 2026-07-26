@@ -610,7 +610,11 @@ bool UserData::isFake() const {
 }
 
 bool UserData::isPremium() const {
-	return isSelf();
+	// Self is always reported as premium (client-side unlock), every other
+	// user keeps its real tier so premium emoji, gifting and status checks
+	// stay correct. Hiding the star badge for others is done at the render
+	// site, not here.
+	return isSelf() || (flags() & UserDataFlag::Premium);
 }
 
 bool UserData::isBotInlineGeo() const {

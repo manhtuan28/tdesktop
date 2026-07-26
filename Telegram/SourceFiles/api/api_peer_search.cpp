@@ -53,12 +53,9 @@ void PeerSearch::request(
 	}
 	cache.requested = true;
 	cache.result.query = _query;
-	if (_query.size() < kMinSponsoredQueryLength
-		|| _type != Type::WithSponsored) {
-		cache.sponsoredReady = true;
-	} else {
-		cache.sponsoredReady = true;
-	}
+	// Sponsored results are intentionally never requested in this build,
+	// so they are always marked ready and only real peers get searched.
+	cache.sponsoredReady = true;
 	requestPeers();
 }
 

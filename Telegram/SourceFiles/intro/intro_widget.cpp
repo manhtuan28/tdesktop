@@ -291,25 +291,52 @@ void Widget::createLanguageLink() {
 		updateControlsGeometry();
 	};
 
-	const auto currentId = Lang::LanguageIdOrDefault(Lang::Id());
-	const auto defaultId = Lang::DefaultLanguageId();
-	const auto suggested = Lang::CurrentCloudManager().suggestedLanguage();
-	if (currentId != defaultId) {
-		createLink(
-			Lang::GetOriginalValue(tr::lng_switch_to_this.base),
-			defaultId);
-	} else if (!suggested.isEmpty() && suggested != currentId && _api) {
+	// The link must be written in the language it switches to, and the
+	// built-in value of lng_switch_to_this is always the English one, so
+	// the phrase is taken from the target language pack itself.
+	const auto createPackLink = [=](
+			const QString &languageId,
+			const QString &fallback) {
+		// Guards re-checked at callback time, not just at call time: the
+		// request is async and there are three callers.
+		const auto create = [=](const QString &text) {
+			if (text.isEmpty()
+				|| Core::App().domain().maybeLastOrSomeAuthedAccount()) {
+				return;
+			} else if (_changeLanguage) {
+				// Already shown with the fallback phrase — just refine it.
+				_changeLanguage->entity()->setText(text);
+				return;
+			}
+			createLink(text, languageId);
+		};
+		// Show the link immediately with the local fallback phrase, so it is
+		// available offline too, and only refine the caption if the target
+		// pack answers. Without this the link never appears with no network.
+		create(fallback);
+		if (!_api) {
+			return;
+		}
 		_api->request(MTPlangpack_GetStrings(
 			MTP_string(Lang::CloudLangPackName()),
-			MTP_string(suggested),
+			MTP_string(languageId),
 			MTP_vector<MTPstring>(1, MTP_string("lng_switch_to_this"))
 		)).done([=](const MTPVector<MTPLangPackString> &result) {
 			const auto strings = Lang::Instance::ParseStrings(result);
 			const auto i = strings.find(tr::lng_switch_to_this.base);
-			if (i != strings.end()) {
-				createLink(i->second, suggested);
-			}
+			create((i != strings.end()) ? i->second : fallback);
+		}).fail([=] {
+			create(fallback);
 		}).send();
+	};
+
+	const auto currentId = Lang::LanguageIdOrDefault(Lang::Id());
+	const auto defaultId = Lang::DefaultLanguageId();
+	const auto suggested = Lang::CurrentCloudManager().suggestedLanguage();
+	if (currentId != defaultId) {
+		createPackLink(defaultId, tr::lng_switch_to_default(tr::now));
+	} else if (!suggested.isEmpty() && suggested != currentId) {
+		createPackLink(suggested, QString());
 	}
 }
 

@@ -11,7 +11,10 @@ VERSION="$1"
 BINARY_PATH="$2"
 GPG_KEY="$3"
 
-PKG_NAME="telegram-desktop"
+PKG_NAME="tuangram"
+# The runtime desktop-file name is hardcoded in specific_linux.cpp, so the entry
+# and the icons must keep the org.telegram.desktop id even though we rebranded.
+DESKTOP_ID="org.telegram.desktop"
 DEB_VERSION="${VERSION}-1ppa3"
 PPA_URL="ppa:tuancute28/telegram"
 EMAIL="buimanhtuan2k4@gmail.com"
@@ -35,8 +38,8 @@ if [ -f "$UPDATER_PATH" ]; then
 fi
 
 # Copy resources
-cp lib/xdg/org.telegram.desktop.desktop "$BUILD_DIR/org.telegram.desktop.desktop"
-cp Telegram/Resources/art/icon256.png "$BUILD_DIR/telegram.png"
+cp "lib/xdg/$DESKTOP_ID.desktop" "$BUILD_DIR/$DESKTOP_ID.desktop"
+cp Telegram/Resources/art/icon256.png "$BUILD_DIR/$DESKTOP_ID.png"
 
 # Create orig tarball
 cd "$DIR"
@@ -64,7 +67,9 @@ Homepage: https://github.com/manhtuan28/tdesktop
 Package: $PKG_NAME
 Architecture: amd64
 Depends: \${shlibs:Depends}, \${misc:Depends}, libx11-xcb1, libxcb1, libgl1, libgl1-mesa-glx | libgl1-mesa-dri, libpulse0, libxkbcommon0
-Description: Telegram Desktop Custom Build
+Conflicts: telegram-desktop
+Replaces: telegram-desktop
+Description: TuanGram - Custom Telegram Desktop Build
  Fast and secure desktop PC app, perfectly synced with your mobile phone.
  .
  This is a custom build with unlocked premium features and removed limits.
@@ -73,7 +78,7 @@ EOF
 # debian/copyright
 cat <<EOF > "$BUILD_DIR/debian/copyright"
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: Telegram Desktop
+Upstream-Name: TuanGram
 Source: https://github.com/manhtuan28/tdesktop
 
 Files: *
@@ -86,7 +91,7 @@ DATE=$(date -R)
 cat <<EOF > "$BUILD_DIR/debian/changelog"
 $PKG_NAME ($DEB_VERSION) noble; urgency=medium
 
-  * Custom Telegram Desktop release (Product Build).
+  * TuanGram custom Telegram Desktop release (Product Build).
   * Automatically defaults to Vietnamese (vi) language.
   * Unlocked all Telegram Premium features.
   * Bypassed Stars fee for premium actions.
@@ -112,8 +117,8 @@ EOF
 # debian/install
 cat <<EOF > "$BUILD_DIR/debian/install"
 Telegram usr/bin/
-org.telegram.desktop.desktop usr/share/applications/
-telegram.png usr/share/icons/hicolor/256x256/apps/
+$DESKTOP_ID.desktop usr/share/applications/
+$DESKTOP_ID.png usr/share/icons/hicolor/256x256/apps/
 EOF
 if [ -f "$BUILD_DIR/Updater" ]; then
     echo "Updater usr/bin/" >> "$BUILD_DIR/debian/install"

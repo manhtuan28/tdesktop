@@ -89,6 +89,14 @@ using UpdateFlag = Data::PeerUpdate::Flag;
 	return (month > 0 && month <= 12) ? month : 0;
 }
 
+// Session::premium() is unlocked client-side, so guards that decide whether
+// an outgoing request may be sent at all must read the account's real tier,
+// otherwise the composer is enabled for chats the server always rejects.
+// UserData::isPremium() is also unlocked for self, so read the raw flag here.
+[[nodiscard]] bool AccountIsPremium(not_null<Main::Session*> session) {
+	return (session->user()->flags() & UserDataFlag::Premium) != 0;
+}
+
 } // namespace
 
 namespace Data {
@@ -1760,7 +1768,8 @@ Data::RestrictionCheckResult PeerData::amRestricted(
 		}
 	};
 	if (const auto user = asUser()) {
-		if (user->requiresPremiumToWrite() && !user->session().premium()) {
+		if (user->requiresPremiumToWrite()
+			&& !AccountIsPremium(&user->session())) {
 			return Result::Explicit();
 		}
 		return (right == ChatRestriction::SendVoiceMessages
@@ -1908,11 +1917,23 @@ bool PeerData::amMonoforumAdmin() const {
 }
 
 int PeerData::starsPerMessage() const {
+	if (const auto user = asUser()) {
+		return user->starsPerMessage();
+	} else if (const auto channel = asChannel()) {
+		return channel->starsPerMessage();
+	}
 	return 0;
 }
 
 int PeerData::starsPerMessageChecked() const {
-	return 0;
+	if (const auto channel = asChannel()) {
+		if (channel->adminRights()
+			|| channel->amCreator()
+			|| amMonoforumAdmin()) {
+			return 0;
+		}
+	}
+	return starsPerMessage();
 }
 
 Data::StarsRating PeerData::starsRating() const {

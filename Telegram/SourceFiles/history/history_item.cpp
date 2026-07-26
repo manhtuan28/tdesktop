@@ -3098,7 +3098,13 @@ bool HistoryItem::canDelete() const {
 	} else if (out() && !isService()) {
 		return isPost() ? channel->canPostMessages() : true;
 	}
-	return true; // TuanGram: Force enable delete for all messages
+	// TuanGram: "Safe Local Message Deletion". Every guard above stays in
+	// place, so we still refuse messages that can't be removed at all. What
+	// is left here is a message we simply have no server-side right to
+	// delete - it is still removable from the local cache, and
+	// Data::CanDeleteMessageOnServer() makes Histories::deleteMessages()
+	// drop it locally instead of sending a request the server would reject.
+	return true;
 }
 
 bool HistoryItem::canDeleteForEveryone(TimeId now) const {
@@ -3114,9 +3120,6 @@ bool HistoryItem::canDeleteForEveryone(TimeId now) const {
 		return false;
 	}
 	if (peer->isChannel()) {
-		if (out() || peer->asChannel()->canDeleteMessages()) {
-			return true; // TuanGram: Show checkbox for my own messages or if admin
-		}
 		return false;
 	} else if (const auto user = peer->asUser()) {
 		// Bots receive all messages and there is no sense in revoking them.

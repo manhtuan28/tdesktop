@@ -1,11 +1,26 @@
 7.0.6 (26.07.26)
 
-- Add "Translate and Send" functionality for outgoing messages with target language selection.
-- Unlock Real-time translation bar for all standard accounts without Premium.
-- Fix application crash when deleting other people's messages or choosing "delete for me only" in Megagroups/Channels by enforcing safe local-only deletion.
-- Fix metadata stripping not properly removing EXIF/GPS data from images sent as Photos.
-- Optimize Premium Star visibility to only display on your own account.
-- Add global search tabs (Chats, Channels, Apps, Messages, Media, Links, Files, Music, Voice) and improve search accuracy by suppressing irrelevant results.
+- Rename the app to TuanGram with its own application id, install directory and
+  data folder, so it no longer overwrites or shares data with official Telegram
+  Desktop. Existing users need to sign in once after updating.
+- Add "Translate and Send" for outgoing messages, available in every text
+  composer, with an in-flight guard so the translation can no longer be sent to
+  the wrong chat or overwrite a message being edited.
+- Unlock the real-time translation bar for all standard accounts without Premium.
+- Add a Ghost mode switch in Settings > Advanced, so read receipts and typing
+  status suppression can now be turned off.
+- Add media filters (Media, Links, Files, Music, Voice) to the search filter menu.
+- Fix deleting your own post in a broadcast channel never reaching the server.
+  Messages the server would refuse are still removed locally, as before.
+- Fix a crash when sending a PNG with a malformed chunk header, and stop the
+  metadata stripper from corrupting images it cannot fully parse.
+- Fix photo orientation being lost when EXIF is stripped.
+- Fix the Vietnamese default being replaced by English on first sign-in.
+- Fix being unable to message users and channels that charge Stars per message.
+- Fix "Restrict saving content" and "Disable sharing" toggles being stuck on.
+- Fix the Linux launcher entry and autostart never being written.
+- Disable auto-update: it pointed at the official Telegram feed and would have
+  replaced this build with stock Telegram Desktop. Update manually from Releases.
 
 7.0.5 (23.07.26)
 
