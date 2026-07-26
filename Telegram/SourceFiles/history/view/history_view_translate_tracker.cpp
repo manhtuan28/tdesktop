@@ -71,7 +71,7 @@ void TranslateTracker::setup() {
 		Core::App().settings().translateChatEnabledValue(),
 		Data::AmPremiumValue(&_history->session()),
 		std::move(autoTranslationValue),
-		_1); // TuanGram: Unlock translate bar for non-premium
+		[=](bool enabled, bool, auto) { return enabled; }); // TuanGram: Unlock translate bar for non-premium
 	_trackingLanguage.value() | rpl::on_next([=](bool tracking) {
 		_trackingLifetime.destroy();
 		if (tracking) {
