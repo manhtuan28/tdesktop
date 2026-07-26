@@ -54,7 +54,7 @@ class RequestsBar;
 class MoreChatsBar;
 class JumpDownButton;
 class ElasticScroll;
-class SubsectionSlider;
+class SettingsSlider;
 template <typename Widget>
 class FadeWrapScaled;
 template <typename Widget>
@@ -438,8 +438,9 @@ private:
 	std::vector<Data::ReactionId> _searchQueryTags;
 	ChatSearchTab _searchQueryTab = {};
 	GlobalSearchTab _searchGlobalTab = GlobalSearchTab::All;
-	std::unique_ptr<Ui::SubsectionSlider> _globalSearchTabs;
-	ChatTypeFilter _searchQueryFilter = ChatTypeFilter::All;
+	std::unique_ptr<Ui::SettingsSlider> _globalSearchTabs;
+	ChannelData *_searchQueryCommunity = nullptr;
+	ChatTypeFilter _searchQueryFilter = {};
 	bool _searchQueryFromArchive = true;
 
 	Ui::Controls::SwipeBackResult _swipeBackData;

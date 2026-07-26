@@ -3703,10 +3703,14 @@ void Widget::peerSearchReceived(Api::PeerSearchResult result) {
 			}
 			return true;
 		};
-		result.chats.erase(
-			std::remove_if(result.chats.begin(), result.chats.end(), [&](not_null<PeerData*> peer) {
+		result.my.erase(
+			std::remove_if(result.my.begin(), result.my.end(), [&](not_null<PeerData*> peer) {
 				return !filter(peer);
-			}), result.chats.end());
+			}), result.my.end());
+		result.peers.erase(
+			std::remove_if(result.peers.begin(), result.peers.end(), [&](not_null<PeerData*> peer) {
+				return !filter(peer);
+			}), result.peers.end());
 	}
 	_inner->peerSearchReceived(std::move(result));
 	listScrollUpdated();
@@ -4571,6 +4575,7 @@ void Widget::updateControlsGeometry() {
 		&& !searchInPeer()
 		&& (!_searchState.query.isEmpty() || searchHasFocus());
 
+	const auto scrollWidth = _childList ? _narrowWidth : barw;
 	int globalSearchTabsHeight = 0;
 	if (_globalSearchTabs) {
 		if (showGlobalSearchTabs) {
@@ -4614,7 +4619,6 @@ void Widget::updateControlsGeometry() {
 		? wasScrollTop
 		: (wasScrollTop + _topDelta);
 
-	const auto scrollWidth = _childList ? _narrowWidth : barw;
 	if (_moreChatsBar) {
 		_moreChatsBar->resizeToWidth(barw);
 	}
