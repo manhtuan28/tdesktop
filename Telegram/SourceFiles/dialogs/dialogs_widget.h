@@ -436,7 +436,7 @@ private:
 	QString _searchQuery;
 	PeerData *_searchQueryFrom = nullptr;
 	std::vector<Data::ReactionId> _searchQueryTags;
-	ChatSearchTab _searchQueryTab = ChatSearchTab::MyMessages;
+	ChatSearchTab _searchQueryTab = {};
 	GlobalSearchTab _searchGlobalTab = GlobalSearchTab::All;
 	std::unique_ptr<Ui::SubsectionSlider> _globalSearchTabs;
 	ChatTypeFilter _searchQueryFilter = ChatTypeFilter::All;
