@@ -27,7 +27,7 @@ PKG_NAME="tuangram"
 # and the icons must keep the org.telegram.desktop id even though we rebranded.
 DESKTOP_ID="org.telegram.desktop"
 DEB_VERSION="${VERSION}-1ppa${PPA_BUILD}~${SERIES}1"
-PPA_URL="ppa:tuancute28/telegram"
+PPA_URL="ppa:tuancute28/tuangram"
 EMAIL="buimanhtuan2k4@gmail.com"
 AUTHOR="Manh Tuan"
 

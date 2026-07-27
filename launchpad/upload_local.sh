@@ -16,7 +16,7 @@
 set -euo pipefail
 
 # Giữ đồng bộ với PPA_URL trong ppa_upload_ci.sh.
-PPA_URL="ppa:tuancute28/telegram"
+PPA_URL="ppa:tuancute28/tuangram"
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASSUME_YES=false
