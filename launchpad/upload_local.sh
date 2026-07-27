@@ -176,5 +176,5 @@ if [ ${#FAILED[@]} -gt 0 ]; then
 fi
 
 echo "Upload hoàn tất."
-echo "Theo dõi build: https://launchpad.net/~tuancute28/+archive/ubuntu/telegram/+packages"
+echo "Theo dõi build: https://launchpad.net/~tuancute28/+archive/ubuntu/tuangram/+packages"
 echo "Launchpad sẽ gửi email nếu gói bị từ chối."
