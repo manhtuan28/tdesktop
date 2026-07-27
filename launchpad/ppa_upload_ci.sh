@@ -2,11 +2,15 @@
 set -e
 
 if [ "$#" -lt 2 ] || [ "$#" -gt 5 ]; then
-    echo "Usage: $0 <version> <binary_path> [gpg_key_id] [series] [ppa_revision]"
-    echo "Example: $0 7.0.6 out/Release/Telegram B4E8F7726DAE1918924DF426AB5084E43E672D45 noble 1"
+    echo "Usage: $0 <version> <binary_path> [gpg_key_id] [series] [ppa_build]"
+    echo "Example: $0 7.0.6 out/Release/Telegram B4E8F7726DAE1918924DF426AB5084E43E672D45 noble"
     echo
     echo "gpg_key_id may be empty or omitted to build an UNSIGNED source package"
     echo "(useful in CI); sign it locally with debsign before dput."
+    echo
+    echo "ppa_build defaults to a UTC timestamp. Launchpad refuses a version it"
+    echo "already holds, so every upload of the same upstream version needs a"
+    echo "higher build number - do not pin this unless you know why."
     exit 1
 fi
 
@@ -14,13 +18,15 @@ VERSION="$1"
 BINARY_PATH="$2"
 GPG_KEY="${3:-}"
 SERIES="${4:-noble}"
-PPA_REVISION="${5:-1}"
+# Monotonic and unique per upload, and identical across the series built in one
+# run (exported by the caller) so they stay in lockstep.
+PPA_BUILD="${5:-${TUANGRAM_PPA_BUILD:-$(date -u +%Y%m%d%H%M)}}"
 
 PKG_NAME="tuangram"
 # The runtime desktop-file name is hardcoded in specific_linux.cpp, so the entry
 # and the icons must keep the org.telegram.desktop id even though we rebranded.
 DESKTOP_ID="org.telegram.desktop"
-DEB_VERSION="${VERSION}-${PPA_REVISION}ppa1~${SERIES}1"
+DEB_VERSION="${VERSION}-1ppa${PPA_BUILD}~${SERIES}1"
 PPA_URL="ppa:tuancute28/telegram"
 EMAIL="buimanhtuan2k4@gmail.com"
 AUTHOR="Manh Tuan"
@@ -34,6 +40,10 @@ if [ ! -f "$BINARY_PATH" ]; then
 fi
 
 mkdir -p "$BUILD_DIR"
+
+# A previous series left its debian/ here. It must not end up inside the orig
+# tarball, and it would otherwise be regenerated on top of stale files.
+rm -rf "$BUILD_DIR/debian"
 
 # Copy binary
 cp "$BINARY_PATH" "$BUILD_DIR/Telegram"
@@ -53,10 +63,23 @@ sed -i \
     "$BUILD_DIR/$DESKTOP_ID.desktop"
 cp Telegram/Resources/art/icon256.png "$BUILD_DIR/$DESKTOP_ID.png"
 
-# Create orig tarball
-cd "$DIR"
-tar -czf "${PKG_NAME}_${VERSION}.orig.tar.gz" "${PKG_NAME}-${VERSION}"
-cd ..
+# Create the orig tarball ONCE per upstream version. Every series must ship the
+# byte-identical tarball: the .dsc records its checksum, and Launchpad already
+# holds the copy uploaded with the first series. Rebuilding it per series
+# silently invalidates the .dsc files written by the earlier ones
+# ("Checksum doesn't match for ..._orig.tar.gz" at dput time).
+ORIG_TARBALL="${DIR}/${PKG_NAME}_${VERSION}.orig.tar.gz"
+if [ -f "$ORIG_TARBALL" ]; then
+    echo "Reusing existing $ORIG_TARBALL"
+else
+    cd "$DIR"
+    # Deterministic: fixed owner/order and no gzip timestamp, so rebuilding
+    # from the same inputs yields the same bytes.
+    tar --sort=name --owner=0 --group=0 --numeric-owner \
+        --mtime="@0" -cf - "${PKG_NAME}-${VERSION}" \
+        | gzip -n > "${PKG_NAME}_${VERSION}.orig.tar.gz"
+    cd ..
+fi
 
 # Create debian directory
 mkdir -p "$BUILD_DIR/debian"
