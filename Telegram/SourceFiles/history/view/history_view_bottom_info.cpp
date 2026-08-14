@@ -485,6 +485,9 @@ void BottomInfo::layout() {
 void BottomInfo::layoutDateText() {
 	const auto editedPrimary = (_data.flags & Data::Flag::EditedPrimary)
 		&& !(_data.flags & Data::Flag::ForwardedDate);
+	const auto deleted = (_data.flags & Data::Flag::Deleted)
+		? QString::fromUtf8("\xf0\x9f\x97\x91 ")
+		: QString();
 	const auto edited = editedPrimary
 		? QString()
 		: (_data.flags & Data::Flag::Edited)
@@ -496,11 +499,11 @@ void BottomInfo::layoutDateText() {
 		: QString();
 	const auto author = _data.author;
 	const auto prefix = !author.isEmpty() ? u", "_q : QString();
-	const auto date = editedPrimary
+	const auto date = deleted + (editedPrimary
 		? FormatEditedDate(_data.date, _data.editedDate)
 		: edited + ((_data.flags & Data::Flag::ForwardedDate)
 		? Ui::FormatDateTimeSavedFrom(_data.date)
-		: QLocale().toString(_data.date.time(), QLocale::ShortFormat));
+		: QLocale().toString(_data.date.time(), QLocale::ShortFormat)));
 	const auto afterAuthor = prefix + date;
 	const auto afterAuthorWidth = st::msgDateFont->width(afterAuthor);
 	const auto authorWidth = st::msgDateFont->width(author);
@@ -683,6 +686,9 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
 				result.author = msgsigned->author;
 			}
 		}
+	}
+	if (item->isDeleted()) {
+		result.flags |= Flag::Deleted;
 	}
 	if (const auto editedDate = message->displayedEditDate()) {
 		result.flags |= Flag::Edited;

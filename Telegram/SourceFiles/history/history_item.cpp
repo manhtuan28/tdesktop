@@ -2194,6 +2194,19 @@ void HistoryItem::clearMainView() {
 	_mainView = nullptr;
 }
 
+void HistoryItem::markDeleted() {
+	if (_isDeleted) {
+		return;
+	}
+	_isDeleted = true;
+	_history->owner().notifyItemDataChange(this);
+	_history->owner().requestItemResize(this);
+	_history->owner().requestItemRepaint(this);
+	_history->owner().session().changes().messageUpdated(
+		this,
+		Data::MessageUpdate::Flag::Edited);
+}
+
 void HistoryItem::applyEdition(HistoryMessageEdition &&edition) {
 	int keyboardTop = -1;
 	//if (!pendingResize()) {// #TODO edit bot message
@@ -3997,6 +4010,22 @@ bool HistoryItem::canUpdateDate() const {
 }
 
 void HistoryItem::applyTTL(TimeId destroyAt) {
+	const auto previousDestroyAt = std::exchange(_ttlDestroyAt, destroyAt);
+	if (previousDestroyAt) {
+		_history->owner().unregisterMessageTTL(previousDestroyAt, this);
+	}
+	if (!_ttlDestroyAt) {
+		return;
+	} else if (base::unixtime::now() >= _ttlDestroyAt) {
+		const auto session = &_history->session();
+		crl::on_main(session, [session, id = fullId()]{
+			if (const auto item = session->data().message(id)) {
+				item->markDeleted();
+			}
+		});
+	} else {
+		_history->owner().registerMessageTTL(_ttlDestroyAt, this);
+	}
 }
 
 void HistoryItem::replaceBuyWithReceiptInMarkup() {
@@ -4581,6 +4610,9 @@ ItemPreview HistoryItem::toPreview(ToPreviewOptions options) const {
 		}
 		return {};
 	}();
+	if (isDeleted()) {
+		result.text = TextWithEntities{ QString::fromUtf8("\xf0\x9f\x97\x91 ") }.append(std::move(result.text));
+	}
 	if (!sender) {
 		return result;
 	}

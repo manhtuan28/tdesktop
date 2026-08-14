@@ -253,6 +253,10 @@ public:
 	void invalidateChatListEntry();
 
 	void destroy();
+	[[nodiscard]] bool isDeleted() const {
+		return _isDeleted;
+	}
+	void markDeleted();
 	[[nodiscard]] bool out() const {
 		return _flags & MessageFlag::Outgoing;
 	}
@@ -821,6 +825,7 @@ private:
 	MessageGroupId _groupId = MessageGroupId();
 	EffectId _effectId = 0;
 	HistoryView::Element *_mainView = nullptr;
+	bool _isDeleted = false;
 
 	friend class HistoryView::Element;
 	friend class HistoryView::Message;

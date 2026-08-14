@@ -65,19 +65,18 @@ cp Telegram/Resources/art/icon256.png "$BUILD_DIR/$DESKTOP_ID.png"
 
 # Create the orig tarball ONCE per upstream version. Every series must ship the
 # byte-identical tarball: the .dsc records its checksum, and Launchpad already
-# holds the copy uploaded with the first series. Rebuilding it per series
-# silently invalidates the .dsc files written by the earlier ones
-# ("Checksum doesn't match for ..._orig.tar.gz" at dput time).
+# holds the copy uploaded with the first series.
 ORIG_TARBALL="${DIR}/${PKG_NAME}_${VERSION}.orig.tar.gz"
 if [ -f "$ORIG_TARBALL" ]; then
     echo "Reusing existing $ORIG_TARBALL"
 else
     cd "$DIR"
-    # Deterministic: fixed owner/order and no gzip timestamp, so rebuilding
-    # from the same inputs yields the same bytes.
+    # Deterministic: fixed owner/order, pax headers normalized, and no gzip timestamp,
+    # so rebuilding from the same inputs yields bit-for-bit identical bytes.
     tar --sort=name --owner=0 --group=0 --numeric-owner \
+        --pax-option=exthdr.name=%d/PaxHeaders/%f,delete:=atime,delete:=ctime \
         --mtime="@0" -cf - "${PKG_NAME}-${VERSION}" \
-        | gzip -n > "${PKG_NAME}_${VERSION}.orig.tar.gz"
+        | gzip -n -9 > "${PKG_NAME}_${VERSION}.orig.tar.gz"
     cd ..
 fi
 
@@ -88,7 +87,6 @@ mkdir -p "$BUILD_DIR/debian/source"
 # debian/source/format
 echo "3.0 (quilt)" > "$BUILD_DIR/debian/source/format"
 
-
 # debian/control
 cat <<EOF > "$BUILD_DIR/debian/control"
 Source: $PKG_NAME
@@ -96,7 +94,8 @@ Section: net
 Priority: optional
 Maintainer: $AUTHOR <$EMAIL>
 Build-Depends: debhelper-compat (= 13)
-Standards-Version: 4.6.0
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
 Homepage: https://github.com/manhtuan28/tdesktop
 
 Package: $PKG_NAME

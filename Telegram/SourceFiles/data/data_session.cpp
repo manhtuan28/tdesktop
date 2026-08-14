@@ -3025,9 +3025,8 @@ void Session::checkTTLs() {
 		expired.insert(expired.end(), items.begin(), items.end());
 	}
 	if (!expired.empty()) {
-		notifyItemsAboutToBeDestroyed(expired);
 		for (const auto &item : expired) {
-			item->destroy();
+			item->markDeleted();
 		}
 	}
 	scheduleNextTTLs();
@@ -3079,9 +3078,24 @@ void Session::checkFormattedDateUpdates() {
 void Session::processMessagesDeleted(
 		PeerId peerId,
 		const QVector<MTPint> &data) {
+	const auto list = messagesList(peerId);
+	if (!list) {
+		return;
+	}
+	for (const auto &messageId : data) {
+		const auto i = list->find(messageId.v);
+		if (i != list->end()) {
+			i->second->markDeleted();
+		}
+	}
 }
 
 void Session::processNonChannelMessagesDeleted(const QVector<MTPint> &data) {
+	for (const auto &messageId : data) {
+		if (const auto item = nonChannelMessage(messageId.v)) {
+			item->markDeleted();
+		}
+	}
 }
 
 void Session::removeDependencyMessage(not_null<HistoryItem*> item) {

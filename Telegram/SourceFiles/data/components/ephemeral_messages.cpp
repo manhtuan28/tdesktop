@@ -172,7 +172,7 @@ void EphemeralMessages::apply(
 	}
 	for (const auto &id : update.vids().v) {
 		if (const auto item = lookupItem(history->peer, id.v)) {
-			item->destroy();
+			item->markDeleted();
 		}
 	}
 }

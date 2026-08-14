@@ -128,14 +128,51 @@ fi
 
 echo
 for changes in "${CHANGES_FILES[@]}"; do
-    if head -n 1 "$changes" | grep -q "BEGIN PGP SIGNED MESSAGE"; then
-        echo "Đã ký sẵn : $(basename "$changes")"
+    dir="$(dirname "$changes")"
+    dsc_file=""
+    if [ -f "$changes" ]; then
+        dsc_name="$(grep -E '\.dsc$' "$changes" | awk '{print $NF}' | head -n 1)"
+        if [ -n "$dsc_name" ] && [ -f "$dir/$dsc_name" ]; then
+            dsc_file="$dir/$dsc_name"
+        fi
+    fi
+
+    changes_signed=false
+    dsc_signed=false
+    if gpg --verify "$changes" >/dev/null 2>&1; then
+        changes_signed=true
+    fi
+    if [ -n "$dsc_file" ] && gpg --verify "$dsc_file" >/dev/null 2>&1; then
+        dsc_signed=true
+    fi
+
+    if [ "$changes_signed" = true ] && [ "$dsc_signed" = true ]; then
+        echo "Đã ký hợp lệ: $(basename "$changes") (và $(basename "$dsc_file"))"
     else
-        echo "Đang ký   : $(basename "$changes")"
-        # debsign ký cả .dsc lẫn .changes; Launchpad cần cả hai.
-        debsign -k "$GPG_KEY" "$changes"
+        echo "Đang ký: $(basename "$changes")"
+        debsign --re-sign -k "$GPG_KEY" "$changes"
     fi
 done
+
+# ----------------------------------------------------------- kiểm tra file ---
+
+echo
+echo "Kiểm tra tính toàn vẹn các file đính kèm..."
+for changes in "${CHANGES_FILES[@]}"; do
+    dir="$(dirname "$changes")"
+    awk '/^Files:/{flag=1; next} /^[A-Z]/{flag=0} flag {print $1, $5}' "$changes" | while read -r expected_md5 filename; do
+        [ -n "$filename" ] || continue
+        filepath="$dir/$filename"
+        if [ ! -f "$filepath" ]; then
+            die "Thiếu file đính kèm: $filepath"
+        fi
+        actual_md5="$(md5sum "$filepath" | awk '{print $1}')"
+        if [ "$actual_md5" != "$expected_md5" ]; then
+            die "Checksum MD5 không khớp cho $filename (cần: $expected_md5, thực tế: $actual_md5)"
+        fi
+    done
+done
+echo "Tất cả file và checksum đều chuẩn."
 
 # -------------------------------------------------------------- xác nhận ---
 
