@@ -74,12 +74,17 @@ parts:
       # With tags present, describe gives "v7.0.6-12-gabc1234" and the sed
       # leaves "-12-gabc1234". With no tags it gives a bare short hash, which
       # must not be glued straight onto the version ("7.0.66ce2cbf949").
-      suffix=$(git describe --tags --always 2>/dev/null | sed 's,^v[^-]\+,,')
+      suffix=$(git describe --tags --match "v[0-9]*" --always 2>/dev/null | sed 's,^v[0-9.]\+,,')
       case "$suffix" in
         "$version" | "") ;;
         -*) version="${version}${suffix}" ;;
         *) version="${version}+${suffix}" ;;
       esac
+
+      if [ ${#version} -gt 32 ]; then
+        commit=$(git rev-parse --short=7 HEAD 2>/dev/null)
+        version="${version:0:23}+${commit}"
+      fi
 
       craftctl set version="$version"
     override-build: |
