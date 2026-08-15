@@ -1,3 +1,14 @@
+7.0.8 (15.08.26)
+
+- Fix Snapcraft version length validation.
+- Visual indicator (trash icon and tooltip) for deleted messages.
+- Bump version for Launchpad PPA packaging.
+
+7.0.7 (14.08.26)
+
+- Deleted messages retention indicator update.
+- PPA repository update to tuangram.
+
 7.0.6 (26.07.26)
 
 - Rename the app to TuanGram with its own application id, install directory and

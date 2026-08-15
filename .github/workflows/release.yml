@@ -79,8 +79,9 @@ jobs:
 
           # Unsigned on purpose: the signing key stays on your machine.
           # Launchpad accepts the upload only after you debsign it.
+          export TUANGRAM_PPA_BUILD="${{ github.run_number }}"
           for series in noble jammy; do
-            ./launchpad/ppa_upload_ci.sh "$VERSION" extracted/Telegram "" "$series" 1
+            ./launchpad/ppa_upload_ci.sh "$VERSION" extracted/Telegram "" "$series" "$TUANGRAM_PPA_BUILD"
           done
 
           # Ship only the upload set; the unpacked source tree in
