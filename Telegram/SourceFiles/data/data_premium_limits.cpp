@@ -35,11 +35,6 @@ int PremiumLimits::channelsDefault() const {
 int PremiumLimits::channelsPremium() const {
 	return appConfigLimit("channels_limit_premium", 1000);
 }
-int PremiumLimits::channelsCurrent() const {
-	return isPremium()
-		? channelsPremium()
-		: channelsDefault();
-}
 
 int PremiumLimits::similarChannelsDefault() const {
 	return appConfigLimit("recommended_channels_limit_default", 10);
@@ -171,11 +166,6 @@ int PremiumLimits::channelsPublicDefault() const {
 int PremiumLimits::channelsPublicPremium() const {
 	return appConfigLimit("channels_public_limit_premium", 20);
 }
-int PremiumLimits::channelsPublicCurrent() const {
-	return isPremium()
-		? channelsPublicPremium()
-		: channelsPublicDefault();
-}
 
 int PremiumLimits::captionLengthDefault() const {
 	return appConfigLimit("caption_length_limit_default", 1024);
@@ -221,11 +211,6 @@ int PremiumLimits::aboutLengthDefault() const {
 int PremiumLimits::aboutLengthPremium() const {
 	return appConfigLimit("about_length_limit_premium", 140);
 }
-int PremiumLimits::aboutLengthCurrent() const {
-	return AccountIsPremium(_session)
-		? aboutLengthPremium()
-		: aboutLengthDefault();
-}
 
 int PremiumLimits::contactNoteLengthCurrent() const {
 	return appConfigLimit("contact_note_length_limit", 128);
@@ -263,12 +248,6 @@ bool PremiumLimits::isPremium() const {
 
 LevelLimits::LevelLimits(not_null<Main::Session*> session)
 : _session(session) {
-}
-
-int LevelLimits::channelColorLevelMin() const {
-	return _session->appConfig().get<int>(
-		u"channel_color_level_min"_q,
-		5);
 }
 
 int LevelLimits::channelBgIconLevelMin() const {

@@ -83,8 +83,10 @@ class ViewsManager;
 class ConfirmPhone;
 class PeerPhoto;
 class PeerColors;
+class ShareThemes;
 class Polls;
 class TodoLists;
+class RichTasks;
 class ChatParticipants;
 class Communities;
 class UnreadThings;
@@ -191,6 +193,7 @@ public:
 	void requestContacts();
 	void requestDialogs(Data::Folder *folder = nullptr);
 	void requestPinnedDialogs(Data::Folder *folder = nullptr);
+	void reloadPinnedDialogs(Data::Folder *folder = nullptr);
 	void requestMoreBlockedByDateDialogs();
 	void requestMoreDialogsIfNeeded();
 	rpl::producer<bool> dialogsLoadMayBlockByDate() const;
@@ -309,6 +312,10 @@ public:
 		Dialogs::Key chat,
 		const QDate &date,
 		Fn<void(not_null<PeerData*>, MsgId)> callback);
+	void resolveJumpToTime(
+		Dialogs::Key chat,
+		TimeId when,
+		Fn<void(not_null<PeerData*>, MsgId)> callback);
 
 	using SliceType = Data::LoadDirection;
 	void requestHistory(
@@ -322,11 +329,17 @@ public:
 		Storage::SharedMediaType type,
 		MsgId messageId,
 		SliceType slice);
+	void requestPinnedMessagesIfNeeded(
+		not_null<PeerData*> peer,
+		MsgId messageId,
+		MsgId topicRootId = 0,
+		PeerId monoforumPeerId = 0);
 	mtpRequestId requestGlobalMedia(
 		Storage::SharedMediaType type,
 		const QString &query,
 		int32 offsetRate,
 		Data::MessagePosition offsetPosition,
+		bool onlyForwardable,
 		Fn<void(Api::GlobalMediaResult)> done);
 
 	void readFeaturedSetDelayed(uint64 setId);
@@ -454,6 +467,7 @@ public:
 	[[nodiscard]] Api::PeerPhoto &peerPhoto();
 	[[nodiscard]] Api::Polls &polls();
 	[[nodiscard]] Api::TodoLists &todoLists();
+	[[nodiscard]] Api::RichTasks &richTasks();
 	[[nodiscard]] Api::ChatParticipants &chatParticipants();
 	[[nodiscard]] Api::Communities &communities();
 	[[nodiscard]] Api::UnreadThings &unreadThings();
@@ -464,6 +478,7 @@ public:
 	[[nodiscard]] Api::Usernames &usernames();
 	[[nodiscard]] Api::Websites &websites();
 	[[nodiscard]] Api::PeerColors &peerColors();
+	[[nodiscard]] Api::ShareThemes &shareThemes();
 
 	void updatePrivacyLastSeens();
 
@@ -509,6 +524,9 @@ private:
 		const QVector<MTPDialog> &dialogs,
 		const QVector<MTPMessage> &messages);
 	void requestMoreDialogs(Data::Folder *folder);
+	mtpRequestId sendPinnedDialogsRequest(
+		Data::Folder *folder,
+		Fn<void()> finish);
 	DialogsLoadState *dialogsLoadState(Data::Folder *folder);
 	void dialogsLoadFinish(Data::Folder *folder);
 
@@ -558,18 +576,18 @@ private:
 	void requestSavedGifs(TimeId now);
 	void readFeaturedSets();
 
-	void resolveJumpToHistoryDate(
+	void resolveJumpToHistoryTime(
 		not_null<PeerData*> peer,
 		MsgId topicRootId,
 		PeerId monoforumPeerId,
-		const QDate &date,
+		TimeId when,
 		Fn<void(not_null<PeerData*>, MsgId)> callback);
 	template <typename Callback>
-	void requestMessageAfterDate(
+	void requestMessageAfterTime(
 		not_null<PeerData*> peer,
 		MsgId topicRootId,
 		PeerId monoforumPeerId,
-		const QDate &date,
+		TimeId when,
 		Callback &&callback);
 
 	void sharedMediaDone(
@@ -595,6 +613,11 @@ private:
 		not_null<PeerData*> peer,
 		bool justClear,
 		bool revoke);
+	void deleteHistory(
+		not_null<PeerData*> peer,
+		bool justClear,
+		bool revoke,
+		int retries);
 	void applyAffectedMessages(
 		const MTPmessages_AffectedMessages &result) const;
 
@@ -689,9 +712,13 @@ private:
 	};
 	base::flat_map<NotifySettingsKey, mtpRequestId> _notifySettingRequests;
 
+	struct DraftSaveState {
+		mtpRequestId requestId = 0;
+		bool changedWhileSaving = false;
+	};
 	base::flat_map<
 		base::weak_ptr<Data::Thread>,
-		mtpRequestId> _draftsSaveRequestIds;
+		DraftSaveState> _draftSaves;
 	base::Timer _draftsSaveTimer;
 
 	base::flat_set<mtpRequestId> _stickerSetDisenableRequests;
@@ -765,6 +792,7 @@ private:
 	base::flat_map<
 		not_null<Data::Folder*>,
 		DialogsLoadState> _foldersLoadState;
+	base::flat_set<Data::Folder*> _pinnedDialogsReloads;
 
 	rpl::event_stream<SendAction> _sendActions;
 
@@ -822,6 +850,7 @@ private:
 	const std::unique_ptr<Api::PeerPhoto> _peerPhoto;
 	const std::unique_ptr<Api::Polls> _polls;
 	const std::unique_ptr<Api::TodoLists> _todoLists;
+	const std::unique_ptr<Api::RichTasks> _richTasks;
 	const std::unique_ptr<Api::ChatParticipants> _chatParticipants;
 	const std::unique_ptr<Api::Communities> _communities;
 	const std::unique_ptr<Api::UnreadThings> _unreadThings;
@@ -832,6 +861,7 @@ private:
 	const std::unique_ptr<Api::Usernames> _usernames;
 	const std::unique_ptr<Api::Websites> _websites;
 	const std::unique_ptr<Api::PeerColors> _peerColors;
+	const std::unique_ptr<Api::ShareThemes> _shareThemes;
 
 	mtpRequestId _wallPaperRequestId = 0;
 	QString _wallPaperSlug;

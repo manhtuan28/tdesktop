@@ -58,6 +58,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller.h"
 #include "styles/style_boxes.h"
 #include "styles/style_chat_helpers.h"
+#include "styles/style_edit_peer_members.h"
 #include "styles/style_info.h"
 #include "styles/style_layers.h"
 #include "styles/style_menu_icons.h"
@@ -106,7 +107,7 @@ void SendRequest(
 			first,
 			last,
 			user->nameOrPhone,
-			user->username());
+			user->editableUsername());
 		user->session().api().applyUpdates(result);
 		if (const auto settings = user->barSettings()) {
 			const auto flags = PeerBarSetting::AddContact
@@ -836,7 +837,7 @@ void Controller::showPhotoMenu(bool suggest) {
 					[=](QImage &&editedImage) {
 						processChosenPhoto(std::move(editedImage), suggest);
 					},
-					qvariant_cast<QImage>(data->imageData()));
+					QGuiApplication::clipboard()->image());
 			};
 			_photoMenu->addAction(
 				tr::lng_profile_photo_from_clipboard(tr::now),

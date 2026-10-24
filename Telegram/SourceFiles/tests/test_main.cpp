@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #include "tests/test_main.h"
 
+#include "base/base_file_utilities.h"
 #include "base/invoke_queued.h"
 #include "base/integration.h"
 #include "ui/effects/animations.h"
@@ -20,8 +21,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QThread>
 #include <QDir>
 #include <QtCore/qmath.h>
-
-#include <qpa/qplatformscreen.h>
 
 namespace Test {
 
@@ -147,6 +146,10 @@ QString UiIntegration::emojiCacheFolder() {
 	return QDir().currentPath() + "/tests/" + name() + "/emoji";
 }
 
+QString UiIntegration::fontsCacheFolder() {
+	return QDir().currentPath() + "/tests/" + name() + "/fonts";
+}
+
 QString UiIntegration::openglCheckFilePath() {
 	return QDir().currentPath() + "/tests/" + name() + "/opengl";
 }
@@ -171,15 +174,18 @@ int main(int argc, char *argv[]) {
 	auto app = App(argc, argv);
 	app.installNativeEventFilter(&app);
 
+#ifdef Q_OS_MAC
+	base::RegisterBundledResources(u"test_text.rcc"_q);
+#endif // Q_OS_MAC
+
 	const auto ratio = app.devicePixelRatio();
-	const auto useRatio = std::clamp(qCeil(ratio), 1, 3);
+	const auto useRatio = std::clamp(int(std::ceil(ratio)), 1, 3);
 	style::SetDevicePixelRatio(useRatio);
 
 	const auto screen = App::primaryScreen();
 	const auto dpi = screen->logicalDotsPerInch();
-	const auto basePair = screen->handle()->logicalBaseDpi();
-	const auto baseMiddle = (basePair.first + basePair.second) * 0.5;
-	const auto screenExact = dpi / baseMiddle;
+	const auto baseDpi = style::BaseDpi();
+	const auto screenExact = dpi / baseDpi;
 	const auto screenScale = int(base::SafeRound(screenExact * 20)) * 5;
 	const auto chosen = std::clamp(
 		screenScale,
